@@ -1016,6 +1016,48 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 6. **错误处理**：设置只读状态时进行错误处理，确保操作的可靠性
 7. **性能优化**：对于大量文档的场景，考虑批量设置以提高性能
 
+#### setElementReadOnly - 设置元素只读状态
+
+该方法用于设置指定文档中指定数据元元素的只读状态，可以针对文档中的特定数据元进行只读控制，而不是整个文档。
+
+**方法签名：**
+```javascript
+setElementReadOnly(code, elementList, flag)
+```
+
+**参数说明：**
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| code | String | 否 | 文档唯一编号，为空字符串时表示对所有文档进行处理 |
+| elementList | Array | 是 | 数据元code数组，包含需要设置只读状态的数据元编码列表 |
+| flag | Boolean | 是 | 是否只读，true表示只读，false表示可编辑 |
+
+**返回值：** 无
+
+**使用示例：**
+```javascript
+// 设置指定文档中特定数据元为只读状态
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var docCode = 'DOC001';  // 文档唯一编号
+        var elementList = ['ELEMENT001', 'ELEMENT002'];  // 数据元code数组
+        var isReadOnly = true;   // true:只读 false:可编辑
+        
+        editorInstance.setElementReadOnly(docCode, elementList, isReadOnly);
+        console.log('元素只读状态设置成功');
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+**使用说明：**
+- 当 `code` 参数为空字符串时，会对所有文档中的指定数据元进行处理
+- `elementList` 必须是包含数据元code的数组，不能为空
+- 该方法只会影响指定的数据元元素，不会影响文档中的其他元素
+- 已被禁用的元素（`_isdisabled` 为 `true`）不会被处理
+
 
 ## 文档修订模式控制功能
 
@@ -1905,3 +1947,116 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 6. **用户反馈**：为用户提供数据设置的反馈信息
 7. **权限控制**：根据用户权限控制数据设置范围
 8. **数据同步**：确保数据设置与业务逻辑保持同步
+
+
+## 脚本设置功能
+
+脚本设置功能允许开发者在文档模板中配置事件处理函数，用于监听文档加载、元素变化、元素点击等事件，实现自定义的业务逻辑处理。
+
+### 事件方法说明
+
+#### onDocumentLoad - 文档加载事件
+
+**功能说明：**
+- 文档加载完成时自动触发
+- 适用于文档初始化、数据预加载等场景
+
+**方法签名：**
+```javascript
+function onDocumentLoad() {
+    // 在这里添加文档加载完成时需要执行的代码
+}
+```
+
+**使用示例：**
+```javascript
+function onDocumentLoad() {
+    console.log('文档已加载');
+    // 执行初始化操作
+}
+```
+
+#### onElementChange - 元素变化事件
+
+**功能说明：**
+- 当文档中的数据元元素内容发生变化时触发
+- 适用于实时数据校验、联动更新等场景
+
+**方法签名：**
+```javascript
+function onElementChange(element) {
+    // 在这里添加元素变化时需要执行的代码
+}
+```
+
+**参数说明：**
+- `element`: DOM元素对象，表示发生变化的元素节点
+
+**使用示例：**
+```javascript
+function onElementChange(element) {
+    console.log('元素发生变化:', element);
+    // 执行数据校验或联动更新
+}
+```
+
+#### onElementClick - 元素点击事件
+
+**功能说明：**
+- 当用户单击文档中的数据元元素时触发
+- 使用延迟机制（300ms）避免与双击事件冲突
+- 适用于元素点击交互、弹窗显示等场景
+
+**方法签名：**
+```javascript
+function onElementClick(element) {
+    // 在这里添加元素点击时需要执行的代码
+}
+```
+
+**参数说明：**
+- `element`: DOM元素对象，表示被点击的元素节点
+
+**使用示例：**
+```javascript
+function onElementClick(element) {
+    console.log('元素被点击:', element);
+    // 执行点击交互逻辑
+}
+```
+
+#### onElementDbclick - 元素双击事件
+
+**功能说明：**
+- 当用户双击文档中的数据元元素时触发
+- 双击时会自动取消对应的单击事件
+- 适用于快速编辑、详情查看等场景
+
+**方法签名：**
+```javascript
+function onElementDbclick(element) {
+    // 在这里添加元素双击时需要执行的代码
+}
+```
+
+**参数说明：**
+- `element`: DOM元素对象，表示被双击的元素节点
+
+**使用示例：**
+```javascript
+function onElementDbclick(element) {
+    console.log('元素被双击:', element);
+    // 执行双击交互逻辑
+}
+```
+
+### 配置方式
+
+这些事件方法需要在文档模板的脚本配置中进行设置，通过文档设计器的"脚本配置"功能进行配置和管理。
+
+### 注意事项
+
+1. **方法定义**：确保方法名称与事件名称完全一致
+2. **错误处理**：建议在方法内部添加错误处理逻辑，避免脚本错误影响编辑器使用
+3. **性能考虑**：避免在事件处理方法中执行耗时操作
+4. **元素参数**：element参数为DOM元素对象，可通过jQuery包装后使用：`$(element)`

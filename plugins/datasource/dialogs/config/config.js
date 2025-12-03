@@ -395,9 +395,21 @@ function setConfig(data) {
         $("#dsInput").val(data['data-hm-name'] || '');
     }else{
         dsSelect.set(data['data-hm-name']);
-        $("#interact-search").attr('disabled', true);
-        $(".row input.ds-code").attr('disabled', true);
-        $("#autoGenerateCodeBtn").hide();
+        // 检查是否允许修改数据源
+        var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
+                          (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
+                          false;
+        if (allowModify) {
+            // 允许修改数据元名称和编码
+            $("#interact-search").attr('disabled', false);
+            $(".row input.ds-code").attr('disabled', false);
+            $("#autoGenerateCodeBtn").show();
+        } else {
+            // 不允许修改，禁用输入框
+            $("#interact-search").attr('disabled', true);
+            $(".row input.ds-code").attr('disabled', true);
+            $("#autoGenerateCodeBtn").hide();
+        }
     }
     //$("#dsInput").attr('disabled', true);
 

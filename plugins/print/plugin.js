@@ -41,7 +41,7 @@ function getConfig(editor){
     var editorConfig = editor?editor.HMConfig:window.HMConfig||{};
     return editorConfig;
 }
-function getPdfPath(path, params, syncType, download,callback) {
+function getPdfPath(path, params, syncType, download, callback, downloadPdfCallback) {
     // wk button 无法显示
     if (params.html) {
         params.html = params.html.replace(/<button/g, '<span type="button" ').replace(/<\/button>/g, '</span>');
@@ -66,6 +66,25 @@ function getPdfPath(path, params, syncType, download,callback) {
                         responseType: 'blob'
                     },
                     success: function(blob) {
+                        // 如果存在回调函数，先调用回调返回PDF流
+                        if (downloadPdfCallback && typeof downloadPdfCallback === 'function') {
+                            try {
+                                // 创建一个新的Blob副本传递给回调，避免后续操作影响
+                                var blobCopy = new Blob([blob], { type: 'application/pdf' });
+                                downloadPdfCallback(blobCopy);
+                            } catch (e) {
+                                console.error('调用PDF回调失败:', e);
+                            }
+                               // 释放Blob URL 并删除服务器文件
+                            setTimeout(function() {
+                                deletepdf(res.path);
+                            }, 3000);
+                            if (layer) {
+                                layer.remove();
+                            }
+                            return;
+                        }
+                        
                         // 创建Blob URL
                         var blobUrl = URL.createObjectURL(blob);
                         
@@ -301,7 +320,7 @@ function setPrintPageHFooterStyle(doc) {
     }
 }
 
-function doPrintChrome(editor, syncType, timeout,download, callback) {
+function doPrintChrome(editor, syncType, timeout, download, callback, downloadPdfCallback) {
     // 使用http打印
     var head = editor.document.getHead().clone(true);
     var body = editor.document.getBody();
@@ -529,15 +548,15 @@ function doPrintChrome(editor, syncType, timeout,download, callback) {
     
     // 恢复修订模式状态（如果之前修改了）
     if (!shouldShowReviseInPrint && editor.reviseStateBeforePrint === 'hide') {
-        $body.removeClass('hm-revise-hide').addClass('hm-revise-show');
+        $(body.$).removeClass('hm-revise-hide').addClass('hm-revise-show');
     }
     
     var timeIndex = setTimeout(function () {
-        getPdfPath('/emr-print/getChromeHtml2PdfPath', optionsParams, syncType, download, callback);
+        getPdfPath('/emr-print/getChromeHtml2PdfPath', optionsParams, syncType, download, callback, downloadPdfCallback);
         clearTimeout(timeIndex);
     }, timeout);
 }
-function doPrint(editor, syncType, timeout, download,callback) {
+function doPrint(editor, syncType, timeout, download, callback, downloadPdfCallback) {
     // 使用http打印
     var p;
     var config = getConfig(editor);
@@ -844,7 +863,7 @@ function doPrint(editor, syncType, timeout, download,callback) {
     
     $(body.find('.emrWidget-content').$).css('display', 'block');
     var timeIndex = setTimeout(function () {
-        getPdfPath('/emr-print/getPdfPath', optionsParams, syncType,download, callback);
+        getPdfPath('/emr-print/getPdfPath', optionsParams, syncType, download, callback, downloadPdfCallback);
         clearTimeout(timeIndex);
     }, timeout);
 }
@@ -896,7 +915,22 @@ function checkDaiwenFont(body, papareHeaderStr, papareFooterStr) {
 
 (function () {
     var syncCmd = {
-        exec: function (editor, syncType, timeout) {
+        exec: function (editor, data, timeout) {
+            // 处理data参数：可能是字符串（旧方式）或对象（新方式，包含回调）
+            var syncType, downloadPdfCallback;
+            var download = false;
+            
+            if (typeof data === 'string') {
+                // 兼容旧方式：直接传递字符串
+                syncType = data;
+            } else if (data && typeof data === 'object') {
+                // 新方式：传递对象，包含type和callback
+                syncType = data.type || data;
+                downloadPdfCallback = data.callback;
+            } else {
+                syncType = data;
+            }
+            
             var savePrintFunction = function () {
                editor.fire('toolbarCommandComplete',{command:'print',type:syncType,data:{}});
             };
@@ -904,15 +938,14 @@ function checkDaiwenFont(body, papareHeaderStr, papareFooterStr) {
             if (editorSize.size != 1) {
                 editorSize.enlargeOrShrink('恢复原始宽度');
             }
-            var download = false;
             if(syncType=='下载'){
                 syncType = '打印';
                 download = true;
             }
             if (!getConfig(editor).realtimePageBreak) {
-                doPrint(editor, syncType, timeout, download,savePrintFunction);
+                doPrint(editor, syncType, timeout, download, savePrintFunction, downloadPdfCallback);
             } else {
-                doPrintChrome(editor, syncType, timeout, download,savePrintFunction);
+                doPrintChrome(editor, syncType, timeout, download, savePrintFunction, downloadPdfCallback);
             }
         },
         canUndo: false,

@@ -53,6 +53,28 @@ CKEDITOR.dialog.add( 'document', function( editor ) {
 				}
 			]
 		} ],
+		buttons: [
+			CKEDITOR.dialog.okButton,
+			{
+				id: 'runScript',
+				type: 'button',
+				label: '运行',
+				onClick: function(evt) {
+					var dialog = evt.data.dialog;
+					var iframe = document.getElementById('documentInfo');
+					if (iframe && iframe.contentWindow && typeof iframe.contentWindow.runScript === 'function') {
+						try {
+							iframe.contentWindow.runScript();
+						} catch (error) {
+							editor.showNotification('运行脚本时出错: ' + error.message, 'error');
+						}
+					} else {
+						editor.showNotification('无法访问脚本运行函数', 'error');
+					}
+				}
+			},
+			CKEDITOR.dialog.cancelButton
+		],
 		onOk:function(){
 			this.commitContent(  );
 			var result = window.commitDocumentInfo(editor.document.getBody(),'');

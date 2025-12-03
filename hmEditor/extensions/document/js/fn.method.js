@@ -115,7 +115,6 @@ commonHM.component['documentModel'].fn({
      */
     setDocReadOnly: function (code,flag) {
         var _t = this;
-       console.log(flag);
         _t.setReadOnly(code,flag);
     },
     /**

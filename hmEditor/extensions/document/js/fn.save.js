@@ -26,12 +26,12 @@ commonHM.component['documentModel'].fn({
                     $(ele).html(_placeholder);
                 }
             }
-        });  
+        });
         // 清除 质控
-        $(widget).find('.doc-warn-p').each(function(){
+        $(widget).find('.doc-warn-p').each(function () {
             $(this).remove();
         });
-        $(widget).find('.doc-warn-txt').each(function(i,ele){
+        $(widget).find('.doc-warn-txt').each(function (i, ele) {
             new CKEDITOR.dom.element(ele).remove(true);
         });
         var paperSize = $body.getAttribute('data-hm-papersize');
@@ -96,9 +96,9 @@ commonHM.component['documentModel'].fn({
     getSourceData: function ($body) {
         var _t = this;
         var sourceObj = {
-            data: [], // 非护理表单数据 
+            data: [] // 非护理表单数据 
         };
-
+        debugger
         // 处理普通数据元
         _t.handleNormalDataElements($body, sourceObj);
 
@@ -169,7 +169,7 @@ commonHM.component['documentModel'].fn({
             });
             sourceObj.data.push(tableData);
         });
-    }, 
+    },
     /**
      * 根据表格编码、列列表、行索引获取表格数据
      * @param {string} tableCode 表格编码
@@ -177,15 +177,15 @@ commonHM.component['documentModel'].fn({
      * @param {number} rowIndex 获取行索引，为空时获取全部行
      * @returns {Object} 表格数据对象
      */
-    getTableListData:function(tableCode,keyList,rowIndex){
-        var _t = this; 
+    getTableListData: function (tableCode, keyList, rowIndex) {
+        var _t = this;
         var $body = $(_t.editor.document.getBody().$);
         var $table = $body.find('table[data-hm-table-code="' + tableCode + '"]');
-        
+
         if (!$table.length) {
             return null;
         }
-        
+
         // 构建表格数据对象
         var tableData = {
             keyCode: tableCode,
@@ -196,31 +196,31 @@ commonHM.component['documentModel'].fn({
         // 增加逻辑，判断表格时横向还是竖向
         var tableDirection = $table.attr('evaluate-type') || 'col'; // 默认为竖向
         var $rows = $table.find('tbody tr');
-        
+
         // 根据表格方向选择不同的数据处理方式
-            if (tableDirection === 'row') {
-                // 横向表格：除标题外，一列为一组数据
-                debugger
-                var colCount = _t.getTableColumnCount($table);
-                if (typeof rowIndex === 'number' && rowIndex >= 0) {
-                    // 处理指定列
-                    if (rowIndex < colCount) {
-                        var colData = _t.getColumnData($table, rowIndex, keyList);
-                        if (colData.length) {
-                            tableData.keyValue.push(colData);
-                        }
-                    } else {
-                        console.warn('列索引 ' + rowIndex + ' 超出表格列数范围');
+        if (tableDirection === 'row') {
+            // 横向表格：除标题外，一列为一组数据
+            debugger
+            var colCount = _t.getTableColumnCount($table);
+            if (typeof rowIndex === 'number' && rowIndex >= 0) {
+                // 处理指定列
+                if (rowIndex < colCount) {
+                    var colData = _t.getColumnData($table, rowIndex, keyList);
+                    if (colData.length) {
+                        tableData.keyValue.push(colData);
                     }
                 } else {
-                    // 处理所有列
-                    for (var i = 0; i < colCount; i++) {
-                        var colData = _t.getColumnData($table, i, keyList);
-                        if (colData.length) {
-                            tableData.keyValue.push(colData);
-                        }
+                    console.warn('列索引 ' + rowIndex + ' 超出表格列数范围');
+                }
+            } else {
+                // 处理所有列
+                for (var i = 0; i < colCount; i++) {
+                    var colData = _t.getColumnData($table, i, keyList);
+                    if (colData.length) {
+                        tableData.keyValue.push(colData);
                     }
                 }
+            }
         } else {
             // 竖向表格：沿用现有逻辑
             if (typeof rowIndex === 'number' && rowIndex >= 0) {
@@ -243,17 +243,17 @@ commonHM.component['documentModel'].fn({
                 });
             }
         }
-        
+
         return tableData;
     },
-     
-    
+
+
     /**
      * 获取表格列数
      * @param {jQuery} $table 表格元素
      * @returns {number} 列数
      */
-    getTableColumnCount: function($table) {
+    getTableColumnCount: function ($table) {
         var $rows = $table.find('tbody tr');
         if ($rows.length === 0) {
             return 0;
@@ -262,7 +262,7 @@ commonHM.component['documentModel'].fn({
         var $firstRow = $rows.first();
         return $firstRow.find('td').length;
     },
-    
+
     /**
      * 获取列数据（用于横向表格）
      * @param {jQuery} $table 表格元素
@@ -270,22 +270,22 @@ commonHM.component['documentModel'].fn({
      * @param {Array} keyList 列编码列表，为空时获取全部列
      * @returns {Array} 列数据数组
      */
-    getColumnData: function($table, colIndex, keyList) {
+    getColumnData: function ($table, colIndex, keyList) {
         var _t = this;
         var colData = [];
         var $rows = $table.find('tbody tr');
-        
+
         // 遍历每一行，获取对应列的数据
-        $rows.each(function() {
+        $rows.each(function () {
             var $row = $(this);
             var $cells = $row.find('[data-hm-node]');
             var $targetCell = $cells.eq(colIndex);
-            
+
             if ($targetCell.length > 0) {
                 // 排除标题行：检查目标单元格是否包含 hm-table-horizontal-header 类
                 if ($targetCell.hasClass('hm-table-horizontal-header')) {
                     return; // 跳过标题行
-                } 
+                }
                 var cellObj = _t.getDataElementObject($targetCell[0]);
                 if (cellObj) {
                     // 如果指定了列编码列表，只返回匹配的列
@@ -300,7 +300,7 @@ commonHM.component['documentModel'].fn({
                 }
             }
         });
-        
+
         return colData;
     },
     /**
@@ -309,11 +309,11 @@ commonHM.component['documentModel'].fn({
      * @param {Array} keyList 列编码列表，为空时获取全部列
      * @returns {Array} 行数据数组
      */
-    getRowData: function($row, keyList) {
+    getRowData: function ($row, keyList) {
         var _t = this;
         var rowData = [];
         var $tds = $row.find('[data-hm-node]');
-        
+
         $tds.each(function () {
             var cellObj = _t.getDataElementObject($(this));
             if (cellObj) {
@@ -328,9 +328,9 @@ commonHM.component['documentModel'].fn({
                 }
             }
         });
-        
+
         return rowData;
-    }, 
+    },
     /**
      * 获取数据元对象
      * @param {*} ele 数据元元素
@@ -346,13 +346,14 @@ commonHM.component['documentModel'].fn({
             keyName: $ele.attr('data-hm-name') || '',
             keyValue: ''
         };
-        console.log(type);
-        if(spanObj.keyName == '婚姻状况代码'){
-            debugger
-        }
         switch (type) {
             case 'newtextbox':
-                spanObj = _t.handleNewTextbox(ele, spanObj);
+                // 增加嵌套逻辑
+                if ($ele.find('[data-hm-name]').length > 0) {
+                    spanObj = _t.handleNestingTextbox(ele, spanObj);
+                } else {
+                    spanObj = _t.handleNewTextbox(ele, spanObj);
+                }
                 break;
             case 'dropbox':
                 spanObj = _t.handleDropbox(ele, spanObj);
@@ -409,20 +410,20 @@ commonHM.component['documentModel'].fn({
             }
         } else if (_type == '下拉') {
             var selectType = _con.attr('_selecttype'); // 下拉框类型
-            var code = _con.attr('code')||""; // 下拉框编码 
+            var code = _con.attr('code') || ""; // 下拉框编码 
             var text = '';
             if (!_con.attr('_placeholdertext')) {
                 text = _con.text(); // 下拉框文本
             }
-            spanObj.keyValue ={
+            spanObj.keyValue = {
                 code: code,
                 value: text
             };
             if (selectType == '多选') {
                 spanObj.keyValue = {
                     code: code && code.split(','),
-                    value:text && text.split(',') 
-                }
+                    value: text && text.split(',')
+                };
             }
         } else if (_type == '二维码') {
             // 对于二维码类型，只取原始的bindVal值，不保存生成的HTML结构
@@ -442,21 +443,22 @@ commonHM.component['documentModel'].fn({
             if (!_con.attr('_placeholdertext')) {
                 // 优化文本获取逻辑，处理包含expressionbox等复杂内容的情况
                 var contentArray = [];
-                
+                console.log(_con.contents());
                 // 遍历所有子节点，按顺序获取内容
-                _con.contents().each(function() {
+                _con.contents().each(function () {
                     if (this.nodeType === 3) { // 文本节点
                         var text = $(this).text();
-                        if (text && text.trim()) {
+                        // if (text && text.trim()) {
+                        if (text) {
                             // 清理文本内容，移除零宽空格等特殊字符
-                            text = text.replace(/\u200B/g, '').replace(/\uFEFF/g, '').trim();
+                            text = text.replace(/\u200B/g, '').replace(/\uFEFF/g, ''); //.trim();
                             if (text) {
                                 contentArray.push(text);
                             }
                         }
                     } else if (this.nodeType === 1) { // 元素节点
                         var $element = $(this);
-                        
+
                         // 如果是expressionbox，创建对象结构
                         if ($element.attr('data-hm-node') === 'expressionbox') {
                             var expressionObj = {
@@ -478,6 +480,8 @@ commonHM.component['documentModel'].fn({
                                 "style": $element.attr('style') || ''
                             };
                             contentArray.push(imgObj);
+                        } else if ($element.is('br')) {
+                            contentArray.push('<br/>');
                         } else {
                             // 检查元素内部是否包含img
                             var $img = $element.find('img');
@@ -496,7 +500,7 @@ commonHM.component['documentModel'].fn({
                                 // 其他元素，获取其文本内容
                                 var elementText = $element.text();
                                 if (elementText && elementText.trim()) {
-                                    elementText = elementText.replace(/\u200B/g, '').replace(/\uFEFF/g, '').trim();
+                                    elementText = elementText.replace(/\u200B/g, '').replace(/\uFEFF/g, ''); //.trim();
                                     if (elementText) {
                                         contentArray.push(elementText);
                                     }
@@ -505,7 +509,7 @@ commonHM.component['documentModel'].fn({
                         }
                     }
                 });
-                
+
                 // 如果只有一个元素且是字符串，直接返回该元素；否则返回数组
                 if (contentArray.length === 1) {
                     var firstElement = contentArray[0];
@@ -521,6 +525,75 @@ commonHM.component['documentModel'].fn({
                     spanObj.keyValue = '';
                 }
             }
+        }
+        return spanObj;
+    },
+    /**
+     * 处理嵌套节点 
+     */
+    handleNestingTextbox: function (ele, spanObj) {
+        var _con = $(ele).find('.new-textbox-content'); 
+        
+        if (!_con.attr('_placeholdertext')) {
+            var contentArray = [];
+            // 使用 DOM 原生的 childNodes 获取一级子节点，更精确控制
+            var childNodes = _con[0].childNodes;
+            
+            for (var i = 0; i < childNodes.length; i++) {
+                var child = childNodes[i];
+                
+                if (child.nodeType === 3) { // 文本节点
+                    // 文本节点如果是 _con 的直接子节点，说明它是独立的文本，应该保留
+                    // 数据元元素内部的文本节点不会出现在这里，因为它们是数据元元素的子节点
+                    var text = child.textContent || child.nodeValue;
+                    if (text) {
+                        // 清理文本内容，移除零宽空格等特殊字符
+                        text = text.replace(/\u200B/g, '').replace(/\uFEFF/g, ''); 
+                        if (text) {
+                            contentArray.push(text);
+                        }
+                    }
+                } else if (child.nodeType === 1) { // 元素节点
+                    var $element = $(child);
+                    
+                    // 检查当前元素本身是否是数据元元素（有 data-hm-code 属性）
+                    // 只检查一级元素，不递归查找嵌套元素
+                    var keyCode = $element.attr('data-hm-code');
+                    if (keyCode) {
+                        // 遇到数据元元素，直接返回包含 keyCode 的对象，不再深入处理
+                        contentArray.push({
+                            keyCode: keyCode
+                        });
+                    } else if ($element.is('br')) {
+                        contentArray.push('<br/>');
+                    } else {
+                        // 其他元素，只获取其文本内容，但排除有 data-hm-code 的子元素
+                        var elementText = '';
+                        // 使用 childNodes 遍历元素的直接子节点，排除有 data-hm-code 的元素
+                        var elementChildNodes = child.childNodes;
+                        for (var j = 0; j < elementChildNodes.length; j++) {
+                            var elementChild = elementChildNodes[j];
+                            if (elementChild.nodeType === 3) { // 文本节点
+                                elementText += (elementChild.textContent || elementChild.nodeValue);
+                            } else if (elementChild.nodeType === 1) { // 元素节点
+                                var $child = $(elementChild);
+                                // 如果子元素没有 data-hm-code，才获取其文本
+                                if (!$child.attr('data-hm-code')) {
+                                    elementText += $child.text();
+                                }
+                            }
+                        }
+                        if (elementText && elementText.trim()) {
+                            elementText = elementText.replace(/\u200B/g, '').replace(/\uFEFF/g, '');
+                            if (elementText) {
+                                contentArray.push(elementText);
+                            }
+                        }
+                    }
+                }
+            }
+            // 返回数组
+            spanObj.keyValue = contentArray;
         }
         return spanObj;
     },
@@ -547,8 +620,8 @@ commonHM.component['documentModel'].fn({
                 var valueArr = [];
                 for (var k = 0; k < arr.length; k++) {
                     var element = arr[k];
-                    for (var j = 0; j < itemList.length; j++) {
-                        var item = itemList[j];
+                    for (var i = 0; i < itemList.length; i++) {
+                        var item = itemList[i];
                         var matches = item.match(/\s*(.+)\((.*?)\)\s*$/);
                         if (matches && matches.length == 3 && element == matches[1]) {
                             code = matches[1];
@@ -578,8 +651,8 @@ commonHM.component['documentModel'].fn({
 
         }
         spanObj.keyValue = {
-            code:code,
-            value:value
+            code: code,
+            value: value
         };
         // spanObj.keyCode = code;
         return spanObj;
@@ -609,8 +682,8 @@ commonHM.component['documentModel'].fn({
         var checksources = $datasource.find('[data-hm-node="radiobox"]');
         var value = [];
         var code = '';
-        for (var j = 0; j < checksources.length; j++) {
-            var checksource = checksources[j];
+        for (var i = 0; i < checksources.length; i++) {
+            var checksource = checksources[i];
             var nameValue = checksource.getAttribute('data-hm-itemname');
             nameValue = nameValue ? nameValue.replace(/\u200B/g, '') : '';
             if (checksource.getAttribute('_selected') == 'true') {
@@ -656,8 +729,8 @@ commonHM.component['documentModel'].fn({
         var checksources = $datasource.find('[data-hm-node="checkbox"]');
         var checkList = new Array();
         var codeList = new Array();
-        for (var j = 0; j < checksources.length; j++) {
-            var checksource = checksources[j];
+        for (var i = 0; i < checksources.length; i++) {
+            var checksource = checksources[i];
             var nameValue = checksource.getAttribute('data-hm-itemname');
             nameValue = nameValue ? nameValue.replace(/\u200B/g, '') : '';
             if (checksource.getAttribute('_selected') == 'true') {
@@ -703,7 +776,7 @@ commonHM.component['documentModel'].fn({
      * @returns
      */
     getFilterData: function (keyList, dataList) {
-        var result = [];      
+        var result = [];
         if (keyList.length) {
             if (dataList.length > 0) {
                 dataList.forEach(item => {
@@ -782,12 +855,12 @@ commonHM.component['documentModel'].fn({
         var _html = _t.getDocumentHtml(widget);
         var _text = _t.getDocumentText(widget);
         var _sourceData = _t.getContentData(widget); // 所有数据
-        
+
         // 优化逻辑：如果params.code不为空且keyList为空或只包含空字符串，则获取该文档的所有数据元
         var _data;
-        var isEmptyKeyList = !params.keyList || params.keyList.length === 0 || 
-                           (params.keyList.length === 1 && params.keyList[0] === '');
-        
+        var isEmptyKeyList = !params.keyList || params.keyList.length === 0 ||
+            (params.keyList.length === 1 && params.keyList[0] === '');
+
         if (params.code && isEmptyKeyList) {
             // 当code不为空且keyList为空或只包含空字符串时，获取该文档的所有数据元
             _data = _sourceData.data;
@@ -795,7 +868,7 @@ commonHM.component['documentModel'].fn({
             // 其他情况使用原有的过滤逻辑
             _data = _t.getFilterData(params.keyList || [], _sourceData.data);
         }
-        
+
         var _id = $(widget).attr('data-hm-widgetid') || '';
         if (!params.code && !params.flag) {
             result.push({
@@ -834,6 +907,5 @@ commonHM.component['documentModel'].fn({
             result[0].nursingData = _sourceData.nursingData;
         }
         return result;
-    },
-   
+    }
 });

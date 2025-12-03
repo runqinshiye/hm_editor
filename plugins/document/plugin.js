@@ -1083,15 +1083,33 @@ CKEDITOR.plugins.add('document', {
                         arrowKey = true;
                     break;
                 case 'Delete':
-                    editor.deleteSelectionPart(range0, 'del', evt); // 模板制作系统删除
-                    if(tableEditfalse()===false||switchModelDelete()===false||deleteText()===false){
-                        evt.stop();
-                        evt.data.preventDefault();
-                        return false;
-                    }
-                    break;
                 case 'Backspace':
-                    editor.deleteSelectionPart(range0, 'back', evt); // 模板制作系统删除
+                    // 先检查是否在表格中，如果在表格中且选中了单元格，则只删除单元格内容
+                    if (selection && selection.isInTable && selection.isInTable()) {
+                        var tabletools = editor.plugins.tabletools;
+                        if (tabletools && tabletools.getSelectedCells) {
+                            var selectedCells = tabletools.getSelectedCells(selection);
+                            if (selectedCells && selectedCells.length > 0) {
+                                // 阻止默认的删除行为，防止删除表格结构
+                                evt.stop();
+                                evt.data.preventDefault();
+                                
+                                // 清空所有选中单元格的内容，但保留单元格结构
+                                editor.fire('saveSnapshot');
+                                for (var i = 0; i < selectedCells.length; i++) {
+                                    var cell = selectedCells[i];
+                                    // 清空单元格内容，但保留一个br以保持单元格高度
+                                    cell.setHtml('<br>');
+                                }
+                                // 重置选择
+                                selection.reset();
+                                editor.fire('saveSnapshot');
+                                return false;
+                            }
+                        }
+                    }
+                    
+                    editor.deleteSelectionPart(range0, evt.data.$.code === 'Delete' ? 'del' : 'back', evt); // 模板制作系统删除
                     if(tableEditfalse()===false||switchModelDelete()===false||deleteText()===false){
                         evt.stop();
                         evt.data.preventDefault();
@@ -1801,6 +1819,27 @@ CKEDITOR.plugins.add('document', {
             if (type == 'del' && range0.endOffset == range0.startOffset) {
                 return;
             }
+            
+            var selection = editor.getSelection();
+            // 检查是否在表格中，如果在表格中且选中了单元格，则只删除单元格内容
+            if (selection && selection.isInTable && selection.isInTable()) {
+                var tabletools = editor.plugins.tabletools;
+                if (tabletools && tabletools.getSelectedCells) {
+                    var selectedCells = tabletools.getSelectedCells(selection);
+                    if (selectedCells && selectedCells.length > 0) {
+                        // 清空所有选中单元格的内容，但保留单元格结构
+                        for (var i = 0; i < selectedCells.length; i++) {
+                            var cell = selectedCells[i];
+                            // 清空单元格内容，但保留一个br以保持单元格高度
+                            cell.setHtml('<br>');
+                        }
+                        // 重置选择
+                        selection.reset();
+                        return;
+                    }
+                }
+            }
+            
             var startEle = range0.startContainer;
             var noDelTag = ['tr', 'td', 'th', 'tbody', 'thead', 'table'];
             if (startEle && startEle.type == 1 && noDelTag.indexOf(startEle.getName()) > -1) {

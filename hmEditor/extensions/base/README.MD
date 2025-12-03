@@ -942,3 +942,45 @@ HMEditor.setDocMultiPartHeader(multiPartHeaderSettings);
 5. **页眉模板**：确保页眉模板中存在对应 data-hm-name 属性的元素节点
 
 该方法特别适用于需要根据时间段动态显示不同页眉信息的病历文档场景。
+
+### 17. downloadPdf 方法
+
+该方法用于下载PDF或获取PDF流：
+
+```javascript
+/**
+ * 下载pdf
+ * @param {Function} callback 回调函数（可选），接收生成的PDF Blob对象
+ * @param {Blob} callback.pdfBlob PDF文件的Blob对象
+ */
+```
+
+#### 参数详细说明
+
+- `callback`: 可选的回调函数，如果提供此参数，则不会触发浏览器下载，而是将PDF Blob对象传递给回调函数；如果不提供此参数，则直接触发浏览器下载PDF文件。
+
+#### 使用示例
+
+```javascript
+// 方式1：直接下载PDF（不提供回调）
+HMEditor.downloadPdf();
+
+// 方式2：获取PDF流并自定义处理（提供回调）
+HMEditor.downloadPdf(function(pdfBlob) {
+    // pdfBlob 是生成的PDF文件的Blob对象
+    console.log('PDF已生成，大小:', pdfBlob.size, 'bytes');
+    console.log('PDF类型:', pdfBlob.type); // 'application/pdf'
+});
+```
+
+#### 功能说明
+
+- **无回调模式**：当不提供 `callback` 参数时，方法会直接触发浏览器的PDF下载功能，用户可以在浏览器中看到下载提示。
+- **回调模式**：当提供 `callback` 参数时，PDF会以Blob对象的形式传递给回调函数，不会触发浏览器下载，开发者可以自定义处理逻辑，如上传到服务器、转换为Base64、自定义下载等。
+
+#### 注意事项
+
+1. **Blob对象处理**：在回调函数中获取的PDF Blob对象，可以用于各种文件操作，但需要注意及时释放通过 `URL.createObjectURL()` 创建的URL对象，避免内存泄漏。
+2. **文件大小**：可以通过 `pdfBlob.size` 属性获取PDF文件的大小（字节数）。
+3. **文件类型**：PDF Blob对象的 `type` 属性值为 `'application/pdf'`。
+4. **异步处理**：PDF生成是异步操作，回调函数会在PDF生成完成后被调用。

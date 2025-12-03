@@ -137,32 +137,163 @@ CKEDITOR.plugins.add( 'paper', {
                 var paperSizeStyle = /\/\*hm-paper-size\*\/.*\/\*hm-paper-size-end\*\//g;
                 var newStyleStr = '/*hm-paper-size*/@page{margin:0;size:' + data.paperSize.replace('_portrait', '').replace('_', ' ') + '}/*hm-paper-size-end*/';
                 // 如果有预设就替换
+                var styleUpdated = false;
                 for (var i = 0; i < head.children.length; i++) {
                     if ('STYLE' === head.children[i].tagName) {
                         if (paperSizeStyle.test(head.children[i].innerHTML)) {
                             head.children[i].innerHTML = newStyleStr;
-                            return;
+                            styleUpdated = true;
+                            break;
                         }
                     }
                 }
                 // 没有预设就新建
-                var style = editor.document.$.createElement('style');
-                style.innerHTML = newStyleStr;
-                head.appendChild(style);
+                if (!styleUpdated) {
+                    var style = editor.document.$.createElement('style');
+                    style.innerHTML = newStyleStr;
+                    head.appendChild(style);
+                }
+
+				// 如果启用了手动分页，需要更新分页
+				if (editor.HMConfig && editor.HMConfig.realtimePageBreak) {
+					var pagebreakCmd = CKEDITOR.plugins.pagebreakCmd;
+					if (pagebreakCmd) {
+						// 触发重新分页，performAutoPaging 中的 paperSize case 会处理分页更新
+						setTimeout(function() {
+							pagebreakCmd.performAutoPaging(editor, {name: 'paperSize', data: data});
+						}, 0);
+					}
+				}
 			}
 		});
+
+		// 检查表格是否为第一个元素（在data-hm-widgetid容器下）
+		function isTableFirstElement(editor, table) {
+			var body = editor.document.getBody();
+			
+			// 向上查找包含data-hm-widgetid的容器
+			var parent = table.getParent();
+			var widget = null;
+			
+			// 向上遍历查找包含data-hm-widgetid的父元素
+			while (parent && !parent.equals(body)) {
+				if (parent.getAttribute && parent.getAttribute('data-hm-widgetid')) {
+					widget = parent;
+					break;
+				}
+				parent = parent.getParent();
+			}
+			
+			// 检查widget容器下的第一个元素节点
+			var widgetChildren = widget.getChildren();
+			for (var i = 0; i < widgetChildren.count(); i++) {
+				var child = widgetChildren.getItem(i);
+				
+				// 跳过文本节点和注释节点
+				if (child.type !== CKEDITOR.NODE_ELEMENT) {
+					continue;
+				}
+				
+				// 如果第一个元素是目标表格，返回true
+				if (child.equals(table)) {
+					return true;
+				}
+				
+				// 如果第一个元素不是表格，返回false
+				return false;
+			}
+			
+			return false;
+		}
+		
+		// 检查表格是否为最后一个元素（在data-hm-widgetid容器下）
+		function isTableLastElement(editor, table) {
+			var body = editor.document.getBody();
+			
+			// 向上查找包含data-hm-widgetid的容器
+			var parent = table.getParent();
+			var widget = null;
+			
+			// 向上遍历查找包含data-hm-widgetid的父元素
+			while (parent && !parent.equals(body)) {
+				if (parent.getAttribute && parent.getAttribute('data-hm-widgetid')) {
+					widget = parent;
+					break;
+				}
+				parent = parent.getParent();
+			}
+			
+			// 检查widget容器下的最后一个元素节点
+			var widgetChildren = widget.getChildren();
+			// 从后往前遍历
+			for (var i = widgetChildren.count() - 1; i >= 0; i--) {
+				var child = widgetChildren.getItem(i);
+				
+				// 跳过文本节点和注释节点
+				if (child.type !== CKEDITOR.NODE_ELEMENT) {
+					continue;
+				}
+				
+				// 如果最后一个元素是目标表格，返回true
+				if (child.equals(table)) {
+					return true;
+				}
+				
+				// 如果最后一个元素不是表格，返回false
+				return false;
+			}
+			
+			return false;
+		}
 
 		function paperHF(commandName){
 			var path = editor.elementPath(),
 				table = path.contains( 'table', 1 );
 			switch(commandName){
 				case 'paperHeader_enable':
+								
+					// 检查是否已经存在其他页眉表格（只允许一个，排除当前表格）
+					var body = editor.document.getBody();
+					var existingHeaders = body.find('table[_paperheader="true"]');
+					for (var i = 0; i < existingHeaders.count(); i++) {
+						var existingHeader = existingHeaders.getItem(i);
+						// 如果存在其他页眉表格（不是当前表格），则提示
+						if (!existingHeader.equals(table)) {
+							editor.showNotification('设置页眉失败：页眉只能设置一个表格，请先取消现有的页眉设置。', 'warning', 3000);
+							return;
+						}
+					}
+					
+					// 检查当前表格是否为第一个元素
+					if (!isTableFirstElement(editor, table)) {
+						editor.showNotification('设置页眉失败：表格必须是页面中的第一个元素，请将表格移到顶部后再设置。', 'warning', 3000);
+						return;
+					}
+					
 					table.setAttribute('_paperheader',true);
 					break;
 				case 'paperHeader_disable':
 					table.removeAttribute('_paperheader');
 					break;
 				case 'paperFooter_enable':
+					// 检查是否已经存在其他页脚表格（只允许一个，排除当前表格）
+					var body = editor.document.getBody();
+					var existingFooters = body.find('table[_paperfooter="true"]');
+					for (var i = 0; i < existingFooters.count(); i++) {
+						var existingFooter = existingFooters.getItem(i);
+						// 如果存在其他页脚表格（不是当前表格），则提示
+						if (!existingFooter.equals(table)) {
+							editor.showNotification('设置页脚失败：页脚只能设置一个表格，请先取消现有的页脚设置。', 'warning', 3000);
+							return;
+						}
+					}
+					
+					// 检查当前表格是否为最后一个元素
+					if (!isTableLastElement(editor, table)) {
+						editor.showNotification('设置页脚失败：表格必须是页面中的最后一个元素，请将表格移到底部再设置。', 'warning', 3000);
+						return;
+					}
+					
 					table.setAttribute('_paperfooter',true);
 					break;
 				case 'paperFooter_disable':

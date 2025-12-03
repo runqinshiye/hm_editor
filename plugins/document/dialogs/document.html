@@ -245,6 +245,93 @@
             'onElementDbclick': '// 元素双击事件\nfunction onElementDbclick(element) {\n    // 在这里添加元素双击时需要执行的代码\n    \n}'
         };
         var userJsCache = {}; // 缓存用户自定义的JS内容
+        
+        // 运行脚本函数
+        function runScript() {
+            try {
+                var scriptContent = $('#meta_js textarea').val();
+                if (!scriptContent || !scriptContent.trim()) {
+                    alert('请先输入脚本内容');
+                    return;
+                }
+                
+                var parentWindow = window.parent;
+                if (!parentWindow) {
+                    alert('无法访问父窗口');
+                    return;
+                }
+                
+                // 尝试多个层级访问CKEDITOR
+                var ckeditorWindow = parentWindow;
+                var editor = null;
+                
+                // 首先尝试在parentWindow中查找
+                if (ckeditorWindow.CKEDITOR && ckeditorWindow.CKEDITOR.instances) {
+                    // 尝试获取当前活动的编辑器
+                    if (ckeditorWindow.CKEDITOR.currentInstance) {
+                        editor = ckeditorWindow.CKEDITOR.currentInstance;
+                    } else {
+                        // 如果没有当前实例，获取第一个可用的编辑器
+                        var instanceNames = Object.keys(ckeditorWindow.CKEDITOR.instances);
+                        if (instanceNames.length > 0) {
+                            editor = ckeditorWindow.CKEDITOR.instances[instanceNames[0]];
+                        }
+                    }
+                }
+                
+                // 如果没找到，尝试parentWindow.parent
+                if (!editor && parentWindow.parent && parentWindow.parent !== parentWindow) {
+                    ckeditorWindow = parentWindow.parent;
+                    if (ckeditorWindow.CKEDITOR && ckeditorWindow.CKEDITOR.instances) {
+                        if (ckeditorWindow.CKEDITOR.currentInstance) {
+                            editor = ckeditorWindow.CKEDITOR.currentInstance;
+                        } else {
+                            var instanceNames = Object.keys(ckeditorWindow.CKEDITOR.instances);
+                            if (instanceNames.length > 0) {
+                                editor = ckeditorWindow.CKEDITOR.instances[instanceNames[0]];
+                            }
+                        }
+                    }
+                }
+                
+                if (!editor) {
+                    alert('无法找到编辑器实例');
+                    return;
+                }
+                
+                // 获取编辑器的body元素
+                var body = editor.document.getBody();
+                if (!body) {
+                    alert('无法获取编辑器body元素');
+                    return;
+                }
+                
+                // 将body转换为jQuery对象（使用ckeditorWindow的$）
+                var $body = ckeditorWindow.$(body.$);
+                
+                // 移除之前添加的临时脚本标签（避免重复执行）
+                $body.prev('head').find('script[data-run-script="true"]').remove();
+                
+                // 创建新的script标签并添加到head中
+                var scriptTag = '<script data-run-script="true">' + scriptContent + '<\/script>';
+                $body.prev('head').append(scriptTag);
+                
+                // 如果脚本中定义了onDocumentLoad函数，立即执行它
+                if (typeof ckeditorWindow.onDocumentLoad === 'function') {
+                    try {
+                        ckeditorWindow.onDocumentLoad();
+                    } catch (error) {
+                        console.error('执行onDocumentLoad时出错:', error);
+                    }
+                }
+                
+                alert('脚本运行成功');
+            } catch (error) {
+                console.error('运行脚本时出错:', error);
+                alert('运行脚本时出错: ' + error.message);
+            }
+        }
+        
         $(function () {
             var dsCliTag = null;
             var parentWindow = window.parent;

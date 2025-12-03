@@ -241,6 +241,59 @@
 			mapTable[i][index].setAttribute('style', 'width:' + realWidth);
 		}
 
+		// 同步跨页表格的列宽
+		function syncTableColumnWidths(sourceTable, columnIndex, leftWidth, rightWidth, usePercent) {
+			var tableId = sourceTable.getAttribute('hm-table-id');
+			if (!tableId) {
+				return;
+			}
+
+			// 找到所有具有相同 hm-table-id 的表格
+			var allTables = editor.document.find('table[hm-table-id="' + tableId + '"]');
+			for (var i = 0; i < allTables.count(); i++) {
+				var targetTable = allTables.getItem(i);
+				// 跳过当前表格，因为已经调整过了
+				if (targetTable.equals(sourceTable)) {
+					continue;
+				}
+
+				try {
+					// 获取目标表格的 colgroup，如果不存在则创建
+					var targetColgroup = new CKEDITOR.dom.element(CKEDITOR.tools.getOrCreateColgroup(targetTable.$, true));
+					var targetCols = targetColgroup.find('col').$;
+
+					// 确保 colgroup 中有足够的 col 元素
+					if (!targetCols || targetCols.length <= columnIndex + 1) {
+						continue;
+					}
+
+					// 同步列宽
+					if (leftWidth && targetCols[columnIndex]) {
+						var leftCol = new CKEDITOR.dom.element(targetCols[columnIndex]);
+						leftCol.setStyle('width', leftWidth);
+					}
+					if (rightWidth && targetCols[columnIndex + 1]) {
+						var rightCol = new CKEDITOR.dom.element(targetCols[columnIndex + 1]);
+						rightCol.setStyle('width', rightWidth);
+					}
+
+					// 同步单元格宽度
+					var targetMapTable = CKEDITOR.tools.buildTableMap(targetTable);
+					for (var j = 0; j < targetMapTable.length; j++) {
+						if (targetMapTable[j] && targetMapTable[j][columnIndex + 1]) {
+							setTableWidth({ colgroup: targetColgroup, index: columnIndex }, columnIndex + 1, targetMapTable, j, usePercent);
+						}
+						if (targetMapTable[j] && targetMapTable[j][columnIndex]) {
+							setTableWidth({ colgroup: targetColgroup, index: columnIndex }, columnIndex, targetMapTable, j, usePercent);
+						}
+					}
+				} catch (e) {
+					// 如果同步过程中出现错误，跳过该表格
+					console.warn('同步表格列宽时出错:', e);
+				}
+			}
+		}
+
 		function resizeColumn() {
 			var rtl = pillar.rtl;
 
@@ -270,8 +323,8 @@
 						rightSideCol.setStyle('width', rwidth);
 
 						// 如果鼠标处于表格右侧边缘, 则仅更改最右边一列
+						var lwidth = null;
 						if (leftSideCol) {
-							var lwidth;
 							if (usePercent) {
 								lwidth = Math.max(leftOldWidth + sizeShift, 100 / tableWidth) + '%';
 							} else {
@@ -293,11 +346,32 @@
 								setTableWidth(pillar, pillar.index, mapTable, i, usePercent);
 							}
 						}
+
+						// 同步跨页表格的列宽
+						if (lwidth) {
+							syncTableColumnWidths(table, pillar.index, lwidth, rwidth, usePercent);
+						} else {
+							syncTableColumnWidths(table, pillar.index, null, rwidth, usePercent);
+						}
 					}
 					// 没有 rightSideCol 时才会有 tableNewWidth
 					// If we're in the last cell, we need to resize the table as well
-					else if ( tableNewWidth )
-						table.setStyle( 'width', pxUnit( tableNewWidth + sizeShift * ( rtl ? -1 : 1 ) ) );
+					else if ( tableNewWidth ) {
+						var newTableWidth = pxUnit( tableNewWidth + sizeShift * ( rtl ? -1 : 1 ) );
+						table.setStyle( 'width', newTableWidth );
+						
+					// 同步跨页表格的表格宽度
+					var tableId = table.getAttribute('hm-table-id');
+					if (tableId) {
+						var allTables = editor.document.find('table[hm-table-id="' + tableId + '"]');
+							for (var i = 0; i < allTables.count(); i++) {
+								var targetTable = allTables.getItem(i);
+								if (!targetTable.equals(table)) {
+									targetTable.setStyle('width', newTableWidth);
+								}
+							}
+						}
+					}
 
 					// Cells resizing is asynchronous-y, so we have to use syncing
                     // to save snapshot only after all cells are resized. (http://dev.ckeditor.com/ticket/13388)

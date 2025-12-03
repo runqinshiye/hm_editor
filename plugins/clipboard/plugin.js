@@ -996,6 +996,26 @@ function removeBodyZeroWidthSpace(editor) {
 						evt.data.preventDefault();
 						return false;
 					}
+					
+					// 检查是否在表格中，如果在表格中且选中了单元格，则只删除单元格内容
+					if (selection.isInTable && selection.isInTable()) {
+						var tabletools = editor.plugins.tabletools;
+						if (tabletools && tabletools.getSelectedCells) {
+							var selectedCells = tabletools.getSelectedCells(selection);
+							if (selectedCells && selectedCells.length > 0) {
+								// 清空所有选中单元格的内容，但保留单元格结构
+								for (var i = 0; i < selectedCells.length; i++) {
+									var cell = selectedCells[i];
+									// 清空单元格内容，但保留一个br或零宽字符以保持单元格高度
+									cell.setHtml('<br>');
+								}
+								// 重置选择
+								selection.reset();
+								return;
+							}
+						}
+					}
+					
 					var ranges = selection.getRanges();
 					var range0 = ranges[0];
 					var startEle = range0.startContainer;

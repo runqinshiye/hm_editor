@@ -419,21 +419,17 @@
             </div>
 
             <!-- 只读模式设置对话框 -->
-            <div class="dialogBox readOnlyDialog">
+            <div class="dialogBox readOnlyDialog" style="width:450px;">
                 <h3>演示用 - 只读模式设置</h3>
                 <div class="input-group">
                     <label>病历编码：</label>
                     <input type="text" id="readOnlyCode" placeholder="请输入病历唯一编码（可选）">
                 </div>
-                <!-- <div class="input-group">
-                    <label>只读模式：</label>
-                    <div class="checkbox-container">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="readOnlyFlag" checked> 启用只读模式
-                        </label>
-                    </div>
-                </div> -->
-                <div style="margin: 25px 0;">
+                <div class="input-group">
+                    <label>数据元集合：</label>
+                    <textarea id="readOnlyElementList" placeholder="请输入JSON格式的数据元集合，如：[&quot;element1&quot;, &quot;element2&quot;]（可选，输入后按元素设置只读）" rows="4"></textarea>
+                </div>
+                <div style="margin-bottom: 25px;">
                     <label class="switch-label">
                         <label>只读模式：</label>
                         <div class="switch">
@@ -448,7 +444,7 @@
                 <div>
                     <button id="btnConfirmReadOnly" class="dialog-btn btn-primary">确定</button>
                     <button id="btnCancelReadOnly" class="dialog-btn">取消</button>
-                    <div class="help-text">编码为空则对所有文档设置只读模式</div>
+                    <div class="help-text">编码为空则对所有文档设置只读模式；<br>输入数据元code集合后按数据元设置只读；</div> 
                 </div>
             </div>
 

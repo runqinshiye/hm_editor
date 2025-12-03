@@ -1078,13 +1078,13 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
 
             // 如果部分聚合病历未完成合并, 需要采取补救措施
             // todo 如果非病历的元素节点也有 [data-hm-widgetid] 属性, 这边就会乱掉...
-            var recordWidgets = editor.document.find("[data-hm-widgetid]");
+            var recordWidgets = $splittersRemoved.find("[data-hm-widgetid]");
             var mergedRecordWidgets = [];
-            if (recordWidgets.count() > 0) {
-                mergedRecordWidgets.push(recordWidgets.getItem(0));
-                for (var i = 1; i < recordWidgets.count(); i++) {
+            if (recordWidgets.length > 0) {
+                mergedRecordWidgets.push(new CKEDITOR.dom.element(recordWidgets[0]));
+                for (var i = 1; i < recordWidgets.length; i++) {
                     var idOld = mergedRecordWidgets[mergedRecordWidgets.length - 1].getAttribute('data-hm-widgetid');
-                    var $nodeNew = recordWidgets.getItem(i);
+                    var $nodeNew = new CKEDITOR.dom.element(recordWidgets[i]);
                     // 如果 id 相同则合并病历 (默认这种情况出现的很少, 故前面的 idOld 采用直接算的策略)
                     if (idOld === $nodeNew.getAttribute('data-hm-widgetid')) {
                         console.warn('部分聚合病历的自动分页项未成功合并');

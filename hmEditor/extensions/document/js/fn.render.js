@@ -34,9 +34,11 @@ commonHM.component['documentModel'].fn({
                 var qrcodeId = 'qrcode_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
                 // 创建行内上下布局的容器样式
-                var containerStyle = 'display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;vertical-align:bottom;';
-                var textStyle = 'display:block;margin:2px 0;font-size:12px;line-height:1.2;white-space:nowrap;';
-                var qrcodeStyle = 'display:block;margin:2px 0;width:' + width + 'px;height:' + height + 'px;';
+                // 使用inline-block替代inline-flex，提高wkhtmltopdf兼容性
+                // 通过text-align:center实现内容居中，而不是依赖flex布局
+                var containerStyle = 'display:inline-block;text-align:center;vertical-align:bottom;';
+                var textStyle = 'display:block;margin:2px 0;font-size:12px;line-height:1.2;white-space:nowrap;text-align:center;';
+                var qrcodeStyle = 'display:block;margin:2px auto;width:' + width + 'px;height:' + height + 'px;';
 
                 var qrcodeHtml = '';
                 if (textPosition === 'top') {
@@ -178,9 +180,11 @@ commonHM.component['documentModel'].fn({
             document.body.removeChild(tempCanvas);
 
             // 构建最终HTML
-            var containerStyle = 'display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;vertical-align:bottom;';
-            var textStyle = 'display:block;margin:2px 0;font-size:12px;line-height:1.2;white-space:nowrap;';
-            var imgStyle = 'display:block;margin:2px 0;';
+            // 使用inline-block替代inline-flex，提高wkhtmltopdf兼容性
+            // 通过text-align:center实现内容居中，而不是依赖flex布局
+            var containerStyle = 'display:inline-block;text-align:center;vertical-align:bottom;';
+            var textStyle = 'display:block;margin:2px 0;font-size:12px;line-height:1.2;white-space:nowrap;text-align:center;';
+            var imgStyle = 'display:block;margin:2px auto;';
 
             // 只设置宽度，让高度保持条形码的自然比例，避免变形
             if (targetWidth && targetWidth > 0) {
@@ -454,7 +458,6 @@ commonHM.component['documentModel'].fn({
 
         // 为现有的图片widget添加拖拽功能（如果还没有的话）
         _t.initExistingImageResizers($(_t.editor.document.getBody().$));
-
         // 调用文档加载完成回调
         if (typeof window.onDocumentLoad === 'function') {
             try {
@@ -724,7 +727,7 @@ commonHM.component['documentModel'].fn({
                             }
                         } else if (typeof item === 'object' && item !== null) {
                             // 处理对象（图片对象、expressionbox对象等）
-                            var objectResult = _t.processObjectItem(item);
+                            var objectResult = _t.processObjectItem(item,$container);
                             if (objectResult.imgFlag) {
                                 imgFlag = true;
                             }
@@ -1284,7 +1287,6 @@ commonHM.component['documentModel'].fn({
         $body.find("[data-hm-node=radiobox]").each(function () {
             $(this).on('click', function () {
                 console.log('******单选事件触发*******');
-                debugger
                 _handleCascade(this);
                 // 调用元素变化回调
                 if (typeof window.onElementChange === 'function') {
@@ -2632,13 +2634,27 @@ commonHM.component['documentModel'].fn({
      * @param {Object} item - 要处理的对象
      * @returns {Object} - 包含html和imgFlag的结果对象
      */
-    processObjectItem: function (item) {
+    processObjectItem: function (item,$container) {
         var result = {
             html: null,
             imgFlag: false
         };
 
-        if (item.类型 === 'img' && item.值) {
+        // 如果item里面有keyCode字段，则通过keycode获取对应的dom节点的html
+        if (item.keyCode) {
+            try {
+                var $body = $container;
+                var $node = $body.find('[data-hm-code="' + item.keyCode + '"]:not([data-hm-node="labelbox"])');
+                if ($node.length > 0) {
+                    result.html = $node.first()[0].outerHTML;
+                } else {
+                    result.html = '';
+                }
+            } catch (e) {
+                console.error('通过keycode获取DOM节点失败:', e);
+                result.html = '';
+            }
+        } else if (item.类型 === 'img' && item.值) {
             // 处理图片对象
             result.html = this.createImageWidget(item);
             result.imgFlag = true;

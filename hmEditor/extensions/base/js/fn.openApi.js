@@ -242,11 +242,21 @@ HMEditor.fn({
     },
     /**
      * 设置文档只读
+     * @param {String} code 文档唯一编号
      * @param {Boolean} readOnly 是否只读
      */
     setDocReadOnly: function (code, flag) {
         var flag = (flag === true || flag === false) ? flag : this.editor.HMConfig.readOnly;
         this.documentModel.setDocReadOnly(code, flag);
+    },
+    /**
+     * 设置单个/多个元素的只读接口
+     * @param {*} code  文档唯一编号
+     * @param {*} elementList 元素列表(数据元code 数组)
+     * @param {Boolean} flag 是否只读
+     */
+    setElementReadOnly: function (code, elementList,flag) {
+        this.documentModel.setElementReadOnly(code, elementList,flag);
     },
     /**
      * 设置文档修订模式
@@ -321,10 +331,16 @@ HMEditor.fn({
     },
     /**
      * 下载pdf
-     *
+     * @param {Function} callback 回调函数，接收生成的PDF Blob对象
+     * @param {Blob} callback.pdfBlob PDF文件的Blob对象
      */
-    downloadPdf: function () {
-        this.editor.execCommand('print', '下载');
+    downloadPdf: function (callback) {
+        // 将回调函数作为execCommand的第二个参数传递
+        var commandData = {
+            type: '下载',
+            callback: callback
+        };
+        this.editor.execCommand('print', commandData);
     },
     /**
      * 在光标处插入内容

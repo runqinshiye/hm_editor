@@ -28,7 +28,7 @@ body {
     margin-bottom: 60px;
 }
 .hm-logic-page{
-    text-align: justify;
+    /* text-align: justify; */
 }
 
 div.emrWidget {
@@ -797,10 +797,10 @@ ins.ice-no-decoration, del.ice-no-decoration {
 }
 .hm-logic-page .new-textbox:before {
     color: transparent;
-    background: url("./img/left.png") no-repeat center;
-    background-size: 100% 70%;
-    margin-left: 2px;
-    margin-right: calc(-0.5em + 5px);
+    background: url("./img/left.png") no-repeat;
+    background-size: 100% 100%;
+    margin-left: -1px;
+    margin-right: calc(-0.5em + 1px);
 }
 
 .new-textbox:after {
@@ -809,10 +809,10 @@ ins.ice-no-decoration, del.ice-no-decoration {
 }
 .hm-logic-page .new-textbox:after {
     color: transparent;
-    background: url("./img/right.png") no-repeat center;
-    background-size: 100% 70%;
-    margin-left: calc(-0.5em + 6px);
-    margin-right: 2px;
+    background: url("./img/right.png") no-repeat;
+    background-size: 100% 100%;
+    margin-left: calc(-0.5em + 1px);
+    margin-right: 0;
 }
 
 [data-hm-node="newtextbox"][_texttype="时间文本"].new-textbox{
@@ -868,6 +868,80 @@ ins.ice-no-decoration, del.ice-no-decoration {
 /*.new-textbox{*/
 /*    text-align: justify;*/
 /*}*/
+
+/* 条形码容器样式 - 确保在打印和PDF转换时也能正确居中 */
+.hm-barcode-container {
+    display: inline-block !important;
+    text-align: center !important;
+    vertical-align: bottom;
+}
+
+.hm-barcode-container img {
+    display: block !important;
+    margin: 2px auto !important;
+}
+
+.hm-barcode-container span {
+    display: block !important;
+    text-align: center !important;
+    margin: 2px 0;
+}
+
+/* 打印和PDF转换时的兼容性样式 */
+@media print {
+    .hm-barcode-container {
+        display: inline-block !important;
+        text-align: center !important;
+    }
+    
+    .hm-barcode-container img {
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    
+    .hm-barcode-container span {
+        display: block !important;
+        text-align: center !important;
+    }
+}
+
+/* 二维码容器样式 - 确保在打印和PDF转换时也能正确居中 */
+.hm-qrcode-container {
+    display: inline-block !important;
+    text-align: center !important;
+    vertical-align: bottom;
+}
+
+.hm-qrcode-container span[id^="qrcode_"] {
+    display: block !important;
+    margin: 2px auto !important;
+}
+
+.hm-qrcode-container > span:not([id^="qrcode_"]) {
+    display: block !important;
+    text-align: center !important;
+    margin: 2px 0;
+}
+
+/* 打印和PDF转换时的兼容性样式 */
+@media print {
+    .hm-qrcode-container {
+        display: inline-block !important;
+        text-align: center !important;
+    }
+    
+    .hm-qrcode-container span[id^="qrcode_"] {
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    
+    .hm-qrcode-container > span:not([id^="qrcode_"]) {
+        display: block !important;
+        text-align: center !important;
+    }
+}
 
 /* 单选按钮样式修改 */
 span[_radiostyle='radioStyle_square'] span[data-hm-itemname].fa-circle-o:before {

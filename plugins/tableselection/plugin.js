@@ -515,19 +515,446 @@
 				}
 			}
 		}
+		
+		// 公共函数：获取目标单元格（从选区中提取）
+		function getTargetCellFromSelection( selection, fallbackCell ) {
+			var ranges = selection.getRanges();
+			var targetCell = null;
+			
+			if ( ranges.length > 0 ) {
+				var range = ranges[ 0 ];
+				// 获取光标所在的单元格，优先使用startContainer
+				targetCell = range.startContainer.getAscendant( { td: 1, th: 1 }, true );
+				// 如果找不到，尝试使用endContainer
+				if ( !targetCell ) {
+					targetCell = range.endContainer.getAscendant( { td: 1, th: 1 }, true );
+				}
+				// 如果还是找不到，尝试使用commonAncestorContainer
+				if ( !targetCell && range.getCommonAncestor ) {
+					var commonAncestor = range.getCommonAncestor();
+					if ( commonAncestor ) {
+						targetCell = commonAncestor.getAscendant( { td: 1, th: 1 }, true );
+					}
+				}
+			}
+			
+			// 如果还是找不到单元格，使用回退单元格
+			return targetCell || fallbackCell;
+		}
+		
+		// 公共函数：获取粘贴表格的所有行
+		function getPastedTableRows( pastedTable ) {
+			var pastedRows = [];
+			var tableBody = pastedTable.findOne( 'tbody' ) || pastedTable.findOne( 'thead' ) || pastedTable.findOne( 'tfoot' );
+			var allRows;
+			var rowIdx;
+			
+			if ( tableBody ) {
+				allRows = tableBody.find( 'tr' );
+				for ( rowIdx = 0; rowIdx < allRows.count(); rowIdx++ ) {
+					pastedRows.push( allRows.getItem( rowIdx ) );
+				}
+			} else {
+				// 如果没有tbody/thead/tfoot，直接从table获取
+				allRows = pastedTable.find( 'tr' );
+				for ( rowIdx = 0; rowIdx < allRows.count(); rowIdx++ ) {
+					pastedRows.push( allRows.getItem( rowIdx ) );
+				}
+			}
+			
+			return pastedRows;
+		}
+		
+		// 公共函数：克隆单元格并保持目标单元格的属性
+		function cloneCellWithAttributes( sourceCell, targetCell ) {
+			var clonedCell;
+			
+			// 使用原生 DOM 节点的 cloneNode 方法，然后包装成 CKEDITOR.dom.element
+			if ( sourceCell.$ && sourceCell.$.cloneNode ) {
+				var clonedNode = sourceCell.$.cloneNode( true );
+				clonedCell = new CKEDITOR.dom.element( clonedNode );
+			} else if ( sourceCell.clone ) {
+				clonedCell = sourceCell.clone( true );
+			} else {
+				return null;
+			}
+			
+			// 保持目标单元格的colspan和rowspan属性
+			if ( targetCell && targetCell.$ ) {
+				if ( targetCell.$.colSpan > 1 ) {
+					clonedCell.$.colSpan = targetCell.$.colSpan;
+				}
+				if ( targetCell.$.rowSpan > 1 ) {
+					clonedCell.$.rowSpan = targetCell.$.rowSpan;
+				}
+			}
+			
+			return clonedCell;
+		}
+		
+		// 处理普通表格粘贴（部分单元格粘贴）
+		function handleNormalTablePaste( editor, selection, pastedTable, selectedTable, selectedCells, firstCell, pastedTableColCount ) {
+			var pastedRowsNormal = getPastedTableRows( pastedTable );
+			var pastedRowCountNormal = pastedRowsNormal.length;
+			var firstPastedCellNormal = null;
+			var lastPastedCellNormal = null;
+			var i, j;
+			
+			// 获取目标单元格（从选区中提取）
+			var targetCellNormal = getTargetCellFromSelection( selection, firstCell );
+			if ( !targetCellNormal ) {
+				return false; // 无法找到目标单元格，退出
+			}
+			
+			// 获取目标表格的映射
+			var targetTableMapNormal = CKEDITOR.tools.buildTableMap( selectedTable );
+			var targetRowIndexNormal = targetCellNormal.getParent().$.rowIndex;
+			var targetColIndexNormal = getRealCellPosition( targetCellNormal );
+			
+			// 如果选中了多个单元格，使用选中的单元格区域
+			if ( selectedCells.length > 1 ) {
+				// 获取选中单元格区域的边界
+				var selectedCellsMapNormal = {};
+				var minRowNormal = targetRowIndexNormal;
+				var maxRowNormal = targetRowIndexNormal;
+				var minColNormal = targetColIndexNormal;
+				var maxColNormal = targetColIndexNormal;
+				
+				// 计算选中区域的边界
+				for ( i = 0; i < selectedCells.length; i++ ) {
+					var cellNormal = selectedCells[ i ];
+					if ( !cellNormal ) {
+						continue;
+					}
+					var rowIdxNormal = cellNormal.getParent().$.rowIndex;
+					var colIdxNormal = getRealCellPosition( cellNormal );
+					
+					if ( rowIdxNormal < minRowNormal ) minRowNormal = rowIdxNormal;
+					if ( rowIdxNormal > maxRowNormal ) maxRowNormal = rowIdxNormal;
+					if ( colIdxNormal < minColNormal ) minColNormal = colIdxNormal;
+					if ( colIdxNormal > maxColNormal ) maxColNormal = colIdxNormal;
+					
+					selectedCellsMapNormal[ rowIdxNormal + ',' + colIdxNormal ] = cellNormal;
+				}
+				
+				// 计算实际可以粘贴的行数和列数（不超过选中区域和粘贴内容）
+				var actualPasteRowCount = Math.min( pastedRowCountNormal, maxRowNormal - minRowNormal + 1 );
+				var actualPasteColCount = Math.min( pastedTableColCount, maxColNormal - minColNormal + 1 );
+				
+				// 将粘贴内容填充到选中的单元格区域
+				for ( i = 0; i < actualPasteRowCount; i++ ) {
+					var pastedRowNormal = pastedRowsNormal[ i ];
+					if ( !pastedRowNormal ) {
+						continue;
+					}
+					var pastedRowCellsNormal = pastedRowNormal.getChildren();
+					var pastedCellCountNormal = pastedRowCellsNormal.count();
+					var targetRowIdxNormal = minRowNormal + i;
+					
+					// 确保不超过表格边界
+					if ( !targetTableMapNormal[ targetRowIdxNormal ] ) {
+						continue;
+					}
+					
+					for ( j = 0; j < actualPasteColCount && j < pastedCellCountNormal; j++ ) {
+						var targetColIdxNormal = minColNormal + j;
+						var cellKeyNormal = targetRowIdxNormal + ',' + targetColIdxNormal;
+						var targetCellToReplaceNormal = selectedCellsMapNormal[ cellKeyNormal ];
+						
+						if ( !targetCellToReplaceNormal ) {
+							// 如果选中的单元格映射中没有，尝试从表格映射中获取
+							if ( targetTableMapNormal[ targetRowIdxNormal ] && 
+								 targetTableMapNormal[ targetRowIdxNormal ][ targetColIdxNormal ] ) {
+								targetCellToReplaceNormal = new CKEDITOR.dom.element( targetTableMapNormal[ targetRowIdxNormal ][ targetColIdxNormal ] );
+							} else {
+								continue;
+							}
+						}
+						
+						var pastedCellItemNormal = pastedRowCellsNormal.getItem( j );
+						if ( !pastedCellItemNormal ) {
+							continue;
+						}
+						
+						// 使用公共函数克隆单元格
+						var pastedCellCloneNormal = cloneCellWithAttributes( pastedCellItemNormal, targetCellToReplaceNormal );
+						if ( !pastedCellCloneNormal ) {
+							continue;
+						}
+						
+						pastedCellCloneNormal.replace( targetCellToReplaceNormal );
+						
+						// 记录第一个和最后一个单元格，用于选中
+						if ( i === 0 && j === 0 ) {
+							firstPastedCellNormal = pastedCellCloneNormal;
+						}
+						if ( i === actualPasteRowCount - 1 && j === actualPasteColCount - 1 ) {
+							lastPastedCellNormal = pastedCellCloneNormal;
+						}
+					}
+				}
+			} else {
+				// 如果只选中了1个单元格，需要检查右侧和下侧是否有单元格
+				var hasRightCellNormal = false;
+				var hasBottomCellNormal = false;
+				
+				// 检查右侧是否有单元格（需要考虑粘贴内容的列数）
+				if ( pastedTableColCount > 1 ) {
+					// 如果粘贴内容有多列，检查右侧是否有足够的单元格
+					var rightColIndex = targetColIndexNormal + 1;
+					if ( targetTableMapNormal[ targetRowIndexNormal ] && 
+						 targetTableMapNormal[ targetRowIndexNormal ][ rightColIndex ] ) {
+						hasRightCellNormal = true;
+					}
+				}
+				
+				// 检查下侧是否有单元格（需要考虑粘贴内容的行数）
+				if ( pastedRowCountNormal > 1 ) {
+					// 如果粘贴内容有多行，检查下侧是否有足够的单元格
+					var bottomRowIndex = targetRowIndexNormal + 1;
+					if ( targetTableMapNormal[ bottomRowIndex ] && 
+						 targetTableMapNormal[ bottomRowIndex ][ targetColIndexNormal ] ) {
+						hasBottomCellNormal = true;
+					}
+				}
+				
+				// 如果右侧和下侧都没有单元格，或者粘贴内容只有1个单元格，只粘贴当前单元格内容
+				if ( ( !hasRightCellNormal && !hasBottomCellNormal ) || 
+					 ( pastedRowCountNormal === 1 && pastedTableColCount === 1 ) ) {
+					var pastedRowSingle = pastedRowsNormal[ 0 ];
+					if ( !pastedRowSingle ) {
+						return false;
+					}
+					var pastedRowCellsSingle = pastedRowSingle.getChildren();
+					var pastedCellItemSingle = pastedRowCellsSingle.getItem( 0 );
+					
+					if ( pastedCellItemSingle ) {
+						var pastedCellCloneSingle = cloneCellWithAttributes( pastedCellItemSingle, targetCellNormal );
+						if ( pastedCellCloneSingle ) {
+							pastedCellCloneSingle.replace( targetCellNormal );
+							firstPastedCellNormal = lastPastedCellNormal = pastedCellCloneSingle;
+						}
+					}
+				} else {
+					// 向右粘贴其余内容（可能还有向下）
+					// 计算实际可以粘贴的最大行数和列数
+					var maxRowToPasteNormal = targetRowIndexNormal + pastedRowCountNormal - 1;
+					var maxColToPasteNormal = targetColIndexNormal + pastedTableColCount - 1;
+					
+					// 确保不超过表格边界
+					var actualMaxRowNormal = Math.min( maxRowToPasteNormal, targetTableMapNormal.length - 1 );
+					
+					for ( i = 0; i < pastedRowCountNormal && ( targetRowIndexNormal + i ) <= actualMaxRowNormal; i++ ) {
+						var pastedRowExpand = pastedRowsNormal[ i ];
+						if ( !pastedRowExpand ) {
+							continue;
+						}
+						var pastedRowCellsExpand = pastedRowExpand.getChildren();
+						var pastedCellCountExpand = pastedRowCellsExpand.count();
+						var currentRowIdxNormal = targetRowIndexNormal + i;
+						
+						// 确保不超过当前行的列数
+						var actualMaxColNormal = targetTableMapNormal[ currentRowIdxNormal ] ? 
+							Math.min( maxColToPasteNormal, targetTableMapNormal[ currentRowIdxNormal ].length - 1 ) : -1;
+						
+						// 如果实际最大列数小于目标列索引，说明没有足够的列可以粘贴
+						if ( actualMaxColNormal < targetColIndexNormal ) {
+							continue;
+						}
+						
+						for ( j = 0; j < pastedCellCountExpand && ( targetColIndexNormal + j ) <= actualMaxColNormal; j++ ) {
+							var currentColIdxNormal = targetColIndexNormal + j;
+							
+							// 获取目标单元格
+							if ( !targetTableMapNormal[ currentRowIdxNormal ] || 
+								 !targetTableMapNormal[ currentRowIdxNormal ][ currentColIdxNormal ] ) {
+								continue;
+							}
+							
+							var targetCellToReplaceExpand = new CKEDITOR.dom.element( targetTableMapNormal[ currentRowIdxNormal ][ currentColIdxNormal ] );
+							var pastedCellItemExpand = pastedRowCellsExpand.getItem( j );
+							
+							if ( !pastedCellItemExpand ) {
+								continue;
+							}
+							
+							// 使用公共函数克隆单元格
+							var pastedCellCloneExpand = cloneCellWithAttributes( pastedCellItemExpand, targetCellToReplaceExpand );
+							if ( !pastedCellCloneExpand ) {
+								continue;
+							}
+							
+							pastedCellCloneExpand.replace( targetCellToReplaceExpand );
+							
+							// 记录第一个和最后一个单元格，用于选中
+							if ( i === 0 && j === 0 ) {
+								firstPastedCellNormal = pastedCellCloneExpand;
+							}
+							if ( i === pastedRowCountNormal - 1 && j === pastedCellCountExpand - 1 ) {
+								lastPastedCellNormal = pastedCellCloneExpand;
+							}
+						}
+					}
+				}
+			}
+			
+			// 选中粘贴的单元格
+			if ( firstPastedCellNormal && lastPastedCellNormal ) {
+				fakeSelectCells( editor, getCellsBetween( firstPastedCellNormal, lastPastedCellNormal ) );
+			}
+			
+			editor.fire( 'saveSnapshot' );
+			
+			// Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
+			setTimeout( function() {
+				editor.fire( 'afterPaste' );
+			}, 0 );
+			
+			return true;
+		} 
 
 		if ( !dataProcessor ) {
 			dataProcessor = new CKEDITOR.htmlDataProcessor( editor );
 		}
 
+		// 优先从 dataTransfer 获取完整的 HTML，因为在非首尾位置 dataValue 可能只包含文本值
+		var pasteHtml = null;
+		if ( evt.data.dataTransfer ) {
+			try {
+				pasteHtml = evt.data.dataTransfer.getData( 'text/html' );
+			} catch ( e ) {
+				// 如果获取失败，忽略错误
+			}
+		}
+		
+		// 如果没有从 dataTransfer 获取到 HTML，使用 dataValue
+		if ( !pasteHtml && evt.data.dataValue ) {
+			pasteHtml = evt.data.dataValue;
+		}
+		
 		// Pasted value must be filtered using dataProcessor to strip all unsafe code
 		// before inserting it into temporary container.
-		tmpContainer.setHtml( dataProcessor.toHtml( evt.data.dataValue ), {
-			fixForBody: false
-		} );
-		pastedTable = tmpContainer.findOne( 'table' );
+		if ( pasteHtml ) {
+			tmpContainer.setHtml( dataProcessor.toHtml( pasteHtml ), {
+				fixForBody: false
+			} );
+			pastedTable = tmpContainer.findOne( 'table' );
+		}
+		
+		// 如果没有粘贴的表格，不处理
+		if ( !pastedTable ) {
+			return;
+		}
 
-		if ( !selection.getRanges().length || !selection.isInTable() && !( boundarySelection = isBoundarySelection( selection ) ) ) {
+		// 提前检测是否是单整行或多整行粘贴
+		var isSingleRowPaste = false;
+		var isMultiRowPaste = false;
+		
+		// 提前获取目标表格，用于判断是否是整行粘贴
+		var targetTableForCheck = null;
+		var targetTableColCountForCheck = 0;
+		var tempSelectedCells = getSelectedCells( selection );
+		if ( tempSelectedCells && tempSelectedCells.length > 0 ) {
+			targetTableForCheck = tempSelectedCells[ 0 ].getAscendant( 'table' );
+			if ( targetTableForCheck ) {
+				var targetTableMapForCheck = CKEDITOR.tools.buildTableMap( targetTableForCheck );
+				targetTableColCountForCheck = targetTableMapForCheck[ 0 ] ? targetTableMapForCheck[ 0 ].length : 0;
+			}
+		}
+		
+		// 辅助函数：检查粘贴表格是否是整行（基于目标表格的列数）
+		function checkIfFullRowPaste( pastedTableMap, targetColCount ) {
+			if ( !pastedTableMap || pastedTableMap.length === 0 ) {
+				return false;
+			}
+			
+			// 如果没有目标表格或目标表格列数为0，无法判断
+			if ( !targetColCount || targetColCount === 0 ) {
+				return false;
+			}
+			
+			var pastedRowColCount, i;
+			
+			// 单行：检查粘贴表格的列数是否等于目标表格的列数
+			if ( pastedTableMap.length === 1 ) {
+				pastedRowColCount = pastedTableMap[ 0 ] ? pastedTableMap[ 0 ].length : 0;
+				return pastedRowColCount > 0 && pastedRowColCount === targetColCount;
+			}
+			
+			// 多行：检查粘贴表格的每一行的列数是否都等于目标表格的列数
+			if ( pastedTableMap.length > 1 ) {
+				for ( i = 0; i < pastedTableMap.length; i++ ) {
+					pastedRowColCount = pastedTableMap[ i ] ? pastedTableMap[ i ].length : 0;
+					if ( pastedRowColCount !== targetColCount ) {
+						return false; // 列数不匹配，不是整行
+					}
+				}
+				return true; // 所有行的列数都匹配目标表格，是整行
+			}
+			
+			return false;
+		}
+		
+		// 判断粘贴的是否为整行，单整行或者多整行
+		if ( pastedTable && targetTableColCountForCheck > 0 ) {
+			var pastedTableMapTemp = CKEDITOR.tools.buildTableMap( pastedTable );
+			if ( pastedTableMapTemp.length === 1 ) {
+				// 检查是否是整行（列数必须等于目标表格的列数）
+				if ( checkIfFullRowPaste( pastedTableMapTemp, targetTableColCountForCheck ) ) {
+					isSingleRowPaste = true;
+				}
+			} else if ( pastedTableMapTemp.length > 1 ) {
+				// 检查是否是整行（所有行的列数必须都等于目标表格的列数）
+				if ( checkIfFullRowPaste( pastedTableMapTemp, targetTableColCountForCheck ) ) {
+					isMultiRowPaste = true;
+				}
+			}
+		}
+		
+
+		// 计算边界选择（用于后续判断）
+		boundarySelection = isBoundarySelection( selection );
+		
+		// 辅助函数：更可靠地检查光标/选区是否在表格中
+		// isInTable() 在折叠选区（光标）时可能返回 false，所以需要手动检查
+		function isSelectionInTable( selection ) {
+			var ranges = selection.getRanges();
+			if ( !ranges || ranges.length === 0 ) {
+				return false;
+			}
+			
+			// 检查每个范围是否在表格中
+			for ( var i = 0; i < ranges.length; i++ ) {
+				var range = ranges[ i ];
+				// 检查起始和结束容器是否在表格中
+				var startTable = range.startContainer.getAscendant( 'table', true );
+				var endTable = range.endContainer.getAscendant( 'table', true );
+				
+				// 如果起始或结束容器在表格中，认为在表格中
+				if ( startTable || endTable ) {
+					return true;
+				}
+			}
+			
+			return false;
+		}
+		
+		// 判断是否应该处理粘贴：
+		// 1. 如果没有选区范围，不处理
+		// 2. 如果不在表格中，需要满足以下任一条件才处理：
+		//    - 是边界选择（行首/行尾）
+		//    - 是单整行粘贴
+		//    - 是多整行粘贴
+		// 3. 如果在表格中，无论是否边界选择都可以处理（允许任意单元格粘贴）
+		if ( !selection.getRanges().length ) {
+			return;
+		}
+		
+		// 使用更可靠的判断方法检查是否在表格中
+		var isInTable = isSelectionInTable( selection ) || selection.isInTable();
+		
+		// 如果不在表格中，需要是边界选择或者是单/多整行粘贴才能继续
+		if ( !isInTable && !boundarySelection && !isSingleRowPaste && !isMultiRowPaste ) {
 			return;
 		}
 
@@ -537,10 +964,12 @@
 		if ( selectedCells.length == 0 ) {
 			return;
 		}
+		
 		if ( selectedCells.length == 1 ) {
-			var selectedContent = evt.data.dataTransfer.getData('text/html');
+			var selectedContent = pasteHtml || ( evt.data.dataTransfer ? evt.data.dataTransfer.getData('text/html') : null ) || evt.data.dataValue || '';
 			var isTable=/^<table[^>]*>[\s\S]*?<\/[^>]*table>$/gi;
-			if( selectedContent.indexOf('cke_table-faked-selection-table') < 0 && !isTable.test(evt.data.dataValue))
+			// 如果是单整行或多整行粘贴，不在这里返回，继续执行
+			if( !isSingleRowPaste && !isMultiRowPaste && selectedContent.indexOf('cke_table-faked-selection-table') < 0 && !isTable.test(selectedContent))
 				return;
 		}
 
@@ -552,147 +981,438 @@
 		firstRow = firstCell.getParent();
 		lastCell = selectedCells[ selectedCells.length - 1 ];
 		lastRow = lastCell.getParent();
+		
+		// 提前检测是否是单整行或多整行粘贴，如果是则直接处理，避免被混合内容检查拦截和清空单元格
+		// isSingleRowPaste 和 isMultiRowPaste 已经在前面通过 checkIfFullRowPaste 函数判断了是否为整行
+		if ( isSingleRowPaste && pastedTable ) {
+			var newRow, newRowCells;
+			var targetCell, targetRow, targetRowIndex;
+			
+			// 获取当前光标所在的单元格
+			if ( boundarySelection ) {
+				// 如果boundarySelection存在，先处理boundarySelection插入新行
+				endIndex = firstRow.getChildCount();
+				firstRow = lastRow = new CKEDITOR.dom.element( 'tr' );
+				firstRow[ 'insert' + ( boundarySelection === 1 ? 'Before' : 'After' ) ]( firstCell.getParent() );
 
-		// Empty all selected cells.
-		if ( !boundarySelection ) {
-			for ( i = 0; i < selectedCells.length; i++ ) {
-				selectedCells[ i ].setHtml( '' );
+				for ( i = 0; i < endIndex; i++ ) {
+					firstCell = new CKEDITOR.dom.element( 'td' );
+					firstCell.appendTo( firstRow );
+				}
+
+				firstCell = firstRow.getFirst();
+				lastCell = firstRow.getLast();
+
+				selection.selectElement( firstRow );
+				selectedCells = getSelectedCells( selection );
+				
+				// 使用新插入的行
+				newRow = firstRow;
+				newRowCells = newRow.getChildren();
+			} else {
+				// 获取当前光标所在的单元格
+				targetCell = getTargetCellFromSelection( selection, firstCell );
+				
+				// 获取当前单元格所在的行
+				targetRow = targetCell.getParent();
+				targetRowIndex = targetRow.$.rowIndex;
+				
+				// 创建包含目标单元格的数组用于插入行
+				var cellsForInsert = [ targetCell ];
+				
+				// 在当前行后面插入新行
+				insertRow( editor, cellsForInsert, false, 1, false );
+				
+				// 获取新插入的行
+				newRow = new CKEDITOR.dom.element( selectedTable.$.rows[ targetRowIndex + 1 ] );
+				newRowCells = newRow.getChildren();
 			}
-		}
-
-		// Handle mixed content (if the table is not the only child in the tmpContainer, we
-		// are probably dealing with mixed content). We handle also non-table content here.
-		if ( tmpContainer.getChildCount() > 1 || !pastedTable ) {
-			selectedCells[ 0 ].setHtml( tmpContainer.getHtml() );
-
+			
+			// 获取粘贴的表格行（可能包含在tbody、thead或tfoot中）
+			var pastedRow = pastedTable.findOne( 'tr' );
+			if ( !pastedRow ) {
+				// 如果没有找到tr，尝试从table直接获取
+				var tableBody = pastedTable.findOne( 'tbody' ) || pastedTable.findOne( 'thead' ) || pastedTable.findOne( 'tfoot' );
+				if ( tableBody ) {
+					pastedRow = tableBody.findOne( 'tr' );
+				}
+			}
+			
+			if ( pastedRow ) {
+				var pastedRowCells = pastedRow.getChildren();
+				
+				// 将粘贴的行内容填充到新行中
+				var cellCount = Math.min( newRowCells.count(), pastedRowCells.count() );
+				var newRowCellsArray = [];
+				for ( i = 0; i < cellCount; i++ ) {
+					var newCell = newRowCells.getItem( i );
+					var pastedCellItem = pastedRowCells.getItem( i );
+					
+					// 确保 pastedCellItem 是有效的元素
+					if ( !pastedCellItem ) {
+						continue;
+					}
+					
+					// 使用公共函数克隆单元格
+					var pastedCell = cloneCellWithAttributes( pastedCellItem, newCell );
+					if ( !pastedCell ) {
+						continue;
+					}
+					
+					pastedCell.replace( newCell );
+					newRowCellsArray.push( pastedCell );
+				}
+				
+				// 选中新插入的行
+				if ( newRowCellsArray.length > 0 ) {
+					fakeSelectCells( editor, getCellsBetween( newRowCellsArray[ 0 ], 
+						newRowCellsArray[ newRowCellsArray.length - 1 ] ) );
+				}
+			}
+			
 			editor.fire( 'saveSnapshot' );
-
+			
+			// Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
+			setTimeout( function() {
+				editor.fire( 'afterPaste' );
+			}, 0 );
+			
+			return;
+		}
+		
+		// 处理多整行粘贴
+		if ( isMultiRowPaste && pastedTable && selectedTable ) {
+			var targetCellMulti, targetRowMulti, targetRowIndexMulti;
+			var newRowsMulti = [];
+			var pastedTableMapForInsert = CKEDITOR.tools.buildTableMap( pastedTable );
+			var pastedRowCount = pastedTableMapForInsert.length;
+			var newRowMulti, newCellMulti, insertIdx;
+			
+			// 获取粘贴的所有行（可能包含在tbody、thead或tfoot中）
+			var pastedRows = getPastedTableRows( pastedTable );
+			
+			// 获取当前光标所在的单元格
+			if ( boundarySelection ) {
+				// 如果boundarySelection存在，先处理boundarySelection插入新行
+				endIndex = firstRow.getChildCount();
+				var referenceRow = firstCell.getParent();
+				
+				// 插入多行
+				for ( insertIdx = 0; insertIdx < pastedRowCount; insertIdx++ ) {
+					newRowMulti = new CKEDITOR.dom.element( 'tr' );
+					// 第一行插入到参考位置，后续行插入到前一行后面
+					if ( insertIdx === 0 ) {
+						newRowMulti[ 'insert' + ( boundarySelection === 1 ? 'Before' : 'After' ) ]( referenceRow );
+					} else {
+						newRowMulti.insertAfter( newRowsMulti[ insertIdx - 1 ] );
+					}
+					
+					// 为新行创建单元格
+					for ( i = 0; i < endIndex; i++ ) {
+						newCellMulti = new CKEDITOR.dom.element( 'td' );
+						newCellMulti.appendTo( newRowMulti );
+					}
+					
+					newRowsMulti.push( newRowMulti );
+				}
+				
+				// 更新firstRow和lastRow为新插入的第一行和最后一行
+				firstRow = newRowsMulti[ 0 ];
+				lastRow = newRowsMulti[ pastedRowCount - 1 ];
+				firstCell = firstRow.getFirst();
+				lastCell = lastRow.getLast();
+				
+				// 选中新插入的行
+				selection.selectElement( firstRow );
+				selectedCells = getSelectedCells( selection );
+				
+				targetRowIndexMulti = firstRow.$.rowIndex;
+			} else {
+				// 获取当前光标所在的单元格
+				targetCellMulti = getTargetCellFromSelection( selection, firstCell );
+				
+				// 获取当前单元格所在的行
+				targetRowMulti = targetCellMulti.getParent();
+				targetRowIndexMulti = targetRowMulti.$.rowIndex;
+				
+				// 获取参考行的列数
+				var referenceRowColCount = targetRowMulti.getChildCount();
+				
+				// 手动创建多行并插入到当前行后面
+				for ( insertIdx = 0; insertIdx < pastedRowCount; insertIdx++ ) {
+					newRowMulti = new CKEDITOR.dom.element( 'tr' );
+					// 第一行插入到目标行后面，后续行插入到前一行后面
+					if ( insertIdx === 0 ) {
+						newRowMulti.insertAfter( targetRowMulti );
+					} else {
+						newRowMulti.insertAfter( newRowsMulti[ insertIdx - 1 ] );
+					}
+					
+					// 为新行创建单元格
+					for ( i = 0; i < referenceRowColCount; i++ ) {
+						newCellMulti = new CKEDITOR.dom.element( 'td' );
+						newCellMulti.appendTo( newRowMulti );
+					}
+					
+					newRowsMulti.push( newRowMulti );
+				}
+				
+				// 更新targetRowIndexMulti为第一行新插入行的索引
+				targetRowIndexMulti = newRowsMulti[ 0 ].$.rowIndex;
+			}
+			
+			// 将粘贴的多行内容填充到新插入的行中
+			var firstPastedCell = null;
+			var lastPastedCell = null;
+			for ( var rowIdxMulti = 0; rowIdxMulti < pastedRowCount && rowIdxMulti < pastedRows.length; rowIdxMulti++ ) {
+				// 使用之前创建的行（无论是boundarySelection还是非boundarySelection，都已经手动创建了行）
+				newRowMulti = newRowsMulti[ rowIdxMulti ];
+				var newRowCellsMulti = newRowMulti.getChildren();
+				var pastedRowMulti = pastedRows[ rowIdxMulti ];
+				var pastedRowCellsMulti = pastedRowMulti.getChildren();
+				
+				// 将粘贴的行内容填充到新行中
+				var cellCountMulti = Math.min( newRowCellsMulti.count(), pastedRowCellsMulti.count() );
+				for ( i = 0; i < cellCountMulti; i++ ) {
+					newCellMulti = newRowCellsMulti.getItem( i );
+					var pastedCellItemMulti = pastedRowCellsMulti.getItem( i );
+					
+					// 确保 pastedCellItem 是有效的元素
+					if ( !pastedCellItemMulti ) {
+						continue;
+					}
+					
+					// 使用公共函数克隆单元格
+					var pastedCellMulti = cloneCellWithAttributes( pastedCellItemMulti, newCellMulti );
+					if ( !pastedCellMulti ) {
+						continue;
+					}
+					
+					pastedCellMulti.replace( newCellMulti );
+					
+					// 记录第一行第一个单元格和最后一行最后一个单元格，用于选中
+					if ( rowIdxMulti === 0 && i === 0 ) {
+						firstPastedCell = pastedCellMulti;
+					}
+					if ( rowIdxMulti === pastedRowCount - 1 && i === cellCountMulti - 1 ) {
+						lastPastedCell = pastedCellMulti;
+					}
+				}
+			}
+			
+			// 选中新插入的所有行
+			if ( firstPastedCell && lastPastedCell ) {
+				fakeSelectCells( editor, getCellsBetween( firstPastedCell, lastPastedCell ) );
+			}
+			
+			editor.fire( 'saveSnapshot' );
+			
+			// Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
+			setTimeout( function() {
+				editor.fire( 'afterPaste' );
+			}, 0 );
+			
 			return;
 		}
 
-		// In case of boundary selection, insert new row before/after selected one, select it
-		// and resume the rest of the algorithm.
-		if ( boundarySelection ) {
-			endIndex = firstRow.getChildCount();
-			firstRow = lastRow = new CKEDITOR.dom.element( 'tr' );
-			firstRow[ 'insert' + ( boundarySelection === 1 ? 'Before' : 'After' ) ]( firstCell.getParent() );
+        // 构建粘贴表格的表格映射
+		pastedTableMap = CKEDITOR.tools.buildTableMap( pastedTable ); 
+        // 获取粘贴表格的最长行长度
+        pastedTableColCount = getLongestRowLength( pastedTableMap );
+        
+        // 获取目标表格的完整映射
+        var targetTableFullMap = CKEDITOR.tools.buildTableMap( selectedTable );
+        var targetTableRowCount = targetTableFullMap.length;
+        var targetTableFullColCount = targetTableFullMap[ 0 ] ? targetTableFullMap[ 0 ].length : 0;
 
-			for ( i = 0; i < endIndex; i++ ) {
-				firstCell = new CKEDITOR.dom.element( 'td' );
-				firstCell.appendTo( firstRow );
-			}
-
-			firstCell = firstRow.getFirst();
-			lastCell = firstRow.getLast();
-
-			selection.selectElement( firstRow );
-			selectedCells = getSelectedCells( selection );
-		}
-
-		// Build table map only for selected fragment.
-		selectedTableMap = CKEDITOR.tools.buildTableMap( selectedTable, firstRow.$.rowIndex,
-			getCellColIndex( firstCell, true ), lastRow.$.rowIndex, getRealCellPosition( lastCell ) );
-		pastedTableMap = CKEDITOR.tools.buildTableMap( pastedTable );
-
-
-		// Now we compare the dimensions of the pasted table and the selected one.
-		// If the pasted one is bigger, we add missing rows and columns.
-		pastedTableColCount = getLongestRowLength( pastedTableMap );
-		selectedTableColCount = getLongestRowLength( selectedTableMap );
-
-		if ( pastedTableMap.length > selectedTableMap.length ) {
-			newRowsCount = pastedTableMap.length - selectedTableMap.length;
-
-			for ( i = 0; i < newRowsCount; i++ ) {
-				insertRow( selectedCells );
-			}
-		}
-
-		if ( pastedTableColCount > selectedTableColCount ) {
-			newColsCount = pastedTableColCount - selectedTableColCount;
-
-			for ( i = 0; i < newColsCount; i++ ) {
-				insertColumn( selectedCells );
-			}
-		}
-
-		// Get all selected cells (original ones + newly inserted ones).
-		firstCell = selectedCells[ 0 ];
-		firstRow = firstCell.getParent();
-		lastCell = selectedCells[ selectedCells.length - 1 ];
-		lastRow = new CKEDITOR.dom.element( selectedTable.$.rows[ lastCell.getParent().$.rowIndex + newRowsCount ] );
-		lastCell = lastRow.getChild( lastCell.$.cellIndex + newColsCount );
-
-		// These indexes would be reused later, to calculate the proper position of newly pasted cells.
-		startIndex = getCellColIndex( selectedCells[ 0 ], true );
-		endIndex = getRealCellPosition( lastCell );
-
-		// Rebuild map for selected table.
-		selectedTableMap = CKEDITOR.tools.buildTableMap( selectedTable, firstRow.$.rowIndex, startIndex,
-			lastRow.$.rowIndex, endIndex );
-
-		// And now paste!
-		for ( i = 0; i < pastedTableMap.length; i++ ) {
-			currentRow = new CKEDITOR.dom.element( selectedTable.$.rows[ firstRow.$.rowIndex + i ] );
-
-			for ( j = 0; j < pastedTableMap[ i ].length; j++ ) {
-				cellToPaste = new CKEDITOR.dom.element( pastedTableMap[ i ][ j ] );
-
-				if ( selectedTableMap[ i ] && selectedTableMap[ i ][ j ] ) {
-					cellToReplace = new CKEDITOR.dom.element( selectedTableMap[ i ][ j ] );
-				} else {
-					cellToReplace = null;
-				}
-
-				// Only try to paste cells that aren't already pasted (it can occur if the pasted cell
-				// has [colspan] or [rowspan]).
-				if ( cellToPaste && !cellToPaste.getCustomData( 'processed' ) ) {
-					// If the cell to being replaced has [colspan], it could have been already
-					// replaced. In that case, it won't have parent.
-					if ( cellToReplace && cellToReplace.getParent() ) {
-						cellToPaste.replace( cellToReplace );
-					} else if ( j === 0 || pastedTableMap[ i ][ j - 1 ] ) {
-						if ( j !== 0 ) {
-							prevCell = new CKEDITOR.dom.element( pastedTableMap[ i ][ j - 1 ] );
-						} else {
-							prevCell = null;
-						}
-
-						// If the cell that should be replaced is not in the table, we must cover at least 3 cases:
-						// 1. Pasting cell in the same row as the previous pasted cell.
-						// 2. Pasting cell into the next row at the proper position.
-						// 3. If the selection started from the left edge of the table,
-						// prepending the proper row with the cell.
-						if ( prevCell && currentRow.equals( prevCell.getParent() ) ) {
-							cellToPaste.insertAfter( prevCell );
-						} else if ( startIndex > 0 ) {
-							cellToPaste.insertAfter( new CKEDITOR.dom.element( currentRow.$.cells[ startIndex ] ) );
-						} else {
-							currentRow.append( cellToPaste, true );
-						}
-					}
-
-					CKEDITOR.dom.element.setMarker( markers, cellToPaste, 'processed', true );
-				} else if ( cellToPaste.getCustomData( 'processed' ) && cellToReplace ) {
-					// If the cell was already pasted, but the cell to replace still exists (e.g. pasted
-					// cell has [colspan]), remove it.
-					cellToReplace.remove();
-				}
-			}
-		}
-
-		CKEDITOR.dom.element.clearAllMarkers( markers );
-
-		// Select newly pasted cells.
-		fakeSelectCells( editor,
-				getCellsBetween( new CKEDITOR.dom.element( pastedTableMap[ 0 ][ 0 ] ), cellToPaste ) );
-
-		editor.fire( 'saveSnapshot' );
-
-		// Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
-		setTimeout( function() {
-			editor.fire( 'afterPaste' );
-		}, 0 );
+        // 辅助函数：检查是否是整列粘贴（单整列或多整列）
+        function checkIsFullColumnPaste( pastedTableMap, targetTableRowCount, targetTableFullColCount ) {
+            // 整列粘贴的条件：粘贴表格的行数必须等于目标表格的行数
+            if ( pastedTableMap.length !== targetTableRowCount ) {
+                return false;
+            }
+            
+            // 检查粘贴表格的每一行的列数是否一致（整列粘贴时，每行的列数应该相同）
+            var firstRowColCount = pastedTableMap[ 0 ] ? pastedTableMap[ 0 ].length : 0;
+            if ( firstRowColCount === 0 ) {
+                return false;
+            }
+            
+            // 检查所有行的列数是否一致
+            for ( var i = 1; i < pastedTableMap.length; i++ ) {
+                var rowColCount = pastedTableMap[ i ] ? pastedTableMap[ i ].length : 0;
+                if ( rowColCount !== firstRowColCount ) {
+                    return false;
+                }
+            }
+            
+            // 单整列：只有1列
+            // 多整列：有多列，且列数小于等于目标表格的列数
+            return firstRowColCount > 0 && firstRowColCount <= targetTableFullColCount;
+        }
+        
+        // 判断是否是整列粘贴（单整列或多整列）
+        var isFullColumnPaste = checkIsFullColumnPaste( pastedTableMap, targetTableRowCount, targetTableFullColCount );
+        var isSingleColumnPaste = isFullColumnPaste && pastedTableColCount === 1;
+        var isMultiColumnPaste = isFullColumnPaste && pastedTableColCount > 1;
+        
+        // 如果不是整列粘贴，则处理普通表格粘贴（部分单元格粘贴）
+        if ( !isFullColumnPaste ) {
+            // 处理普通表格粘贴：将粘贴的表格内容填充到选中的单元格区域
+            if ( handleNormalTablePaste( editor, selection, pastedTable, selectedTable, selectedCells, firstCell, pastedTableColCount ) ) {
+                return;
+            }
+        }
+        
+        // 处理单整列粘贴
+        if ( isSingleColumnPaste && pastedTable && selectedTable ) {
+            var targetCellCol, targetColIndex;
+            var firstPastedCellCol = null;
+            var lastPastedCellCol = null;
+            
+            // 获取当前光标所在的单元格
+            targetCellCol = getTargetCellFromSelection( selection, selectedCells[ 0 ] );
+            
+            if ( !targetCellCol ) {
+                return; // 无法找到目标单元格，退出
+            }
+            
+            // 获取目标单元格的列索引
+            targetColIndex = getCellColIndex( targetCellCol, true );
+            
+            // 在当前列位置插入一列
+            insertColumn( [ targetCellCol ], false, 1 );
+            
+            // 获取粘贴的表格列（所有行的第一列）
+            var pastedRowsCol = getPastedTableRows( pastedTable );
+            
+            // 重新构建表格映射以获取新插入的列
+            var updatedTableMap = CKEDITOR.tools.buildTableMap( selectedTable );
+            var insertedColIndex = targetColIndex + 1; // 插入在目标列后面
+            
+            // 将粘贴的列内容填充到新插入的列中
+            for ( i = 0; i < pastedRowsCol.length && i < updatedTableMap.length; i++ ) {
+                var pastedRowCol = pastedRowsCol[ i ];
+                var pastedCellCol = pastedRowCol.getFirst();
+                
+                if ( !pastedCellCol || !pastedCellCol.is( 'td', 'th' ) ) {
+                    continue;
+                }
+                
+                // 获取目标表格中对应行的新插入列的单元格
+                if ( updatedTableMap[ i ] && updatedTableMap[ i ][ insertedColIndex ] ) {
+                    var targetCellInCol = new CKEDITOR.dom.element( updatedTableMap[ i ][ insertedColIndex ] );
+                    
+                    // 使用公共函数克隆单元格
+                    var pastedCellClone = cloneCellWithAttributes( pastedCellCol, targetCellInCol );
+                    if ( !pastedCellClone ) {
+                        continue;
+                    }
+                    
+                    pastedCellClone.replace( targetCellInCol );
+                    
+                    // 记录第一个和最后一个单元格，用于选中
+                    if ( i === 0 ) {
+                        firstPastedCellCol = pastedCellClone;
+                    }
+                    if ( i === pastedRowsCol.length - 1 ) {
+                        lastPastedCellCol = pastedCellClone;
+                    }
+                }
+            }
+            
+            // 选中新插入的列
+            if ( firstPastedCellCol && lastPastedCellCol ) {
+                fakeSelectCells( editor, getCellsBetween( firstPastedCellCol, lastPastedCellCol ) );
+            }
+            
+            editor.fire( 'saveSnapshot' );
+            
+            // Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
+            setTimeout( function() {
+                editor.fire( 'afterPaste' );
+            }, 0 );
+            
+            return;
+        }
+        
+        // 处理多整列粘贴
+        if ( isMultiColumnPaste && pastedTable && selectedTable ) {
+            var targetCellMultiCol, targetColIndexMulti;
+            var firstPastedCellMultiCol = null;
+            var lastPastedCellMultiCol = null;
+            
+            // 获取当前光标所在的单元格
+            targetCellMultiCol = getTargetCellFromSelection( selection, selectedCells[ 0 ] );
+            
+            if ( !targetCellMultiCol ) {
+                return; // 无法找到目标单元格，退出
+            }
+            
+            // 获取目标单元格的列索引
+            targetColIndexMulti = getCellColIndex( targetCellMultiCol, true );
+            
+            // 在当前列位置插入多列
+            insertColumn( [ targetCellMultiCol ], false, pastedTableColCount );
+            
+            // 获取粘贴的表格列（所有行的所有列）
+            var pastedRowsMultiCol = getPastedTableRows( pastedTable );
+            
+            // 重新构建表格映射以获取新插入的列
+            var updatedTableMapMulti = CKEDITOR.tools.buildTableMap( selectedTable );
+            var insertedColStartIndex = targetColIndexMulti + 1; // 插入在目标列后面
+            
+            // 将粘贴的多列内容填充到新插入的列中
+            for ( i = 0; i < pastedRowsMultiCol.length && i < updatedTableMapMulti.length; i++ ) {
+                var pastedRowMultiCol = pastedRowsMultiCol[ i ];
+                var pastedRowCellsMultiCol = pastedRowMultiCol.getChildren();
+                
+                // 遍历粘贴行的每一列
+                for ( j = 0; j < pastedTableColCount && j < pastedRowCellsMultiCol.count(); j++ ) {
+                    var pastedCellMultiCol = pastedRowCellsMultiCol.getItem( j );
+                    
+                    if ( !pastedCellMultiCol || !pastedCellMultiCol.is( 'td', 'th' ) ) {
+                        continue;
+                    }
+                    
+                    // 获取目标表格中对应行的新插入列的单元格
+                    var targetColIndexInMap = insertedColStartIndex + j;
+                    if ( updatedTableMapMulti[ i ] && updatedTableMapMulti[ i ][ targetColIndexInMap ] ) {
+                        var targetCellInMultiCol = new CKEDITOR.dom.element( updatedTableMapMulti[ i ][ targetColIndexInMap ] );
+                        
+                        // 使用公共函数克隆单元格
+                        var pastedCellCloneMulti = cloneCellWithAttributes( pastedCellMultiCol, targetCellInMultiCol );
+                        if ( !pastedCellCloneMulti ) {
+                            continue;
+                        }
+                        
+                        pastedCellCloneMulti.replace( targetCellInMultiCol );
+                        
+                        // 记录第一个和最后一个单元格，用于选中
+                        if ( i === 0 && j === 0 ) {
+                            firstPastedCellMultiCol = pastedCellCloneMulti;
+                        }
+                        if ( i === pastedRowsMultiCol.length - 1 && j === pastedTableColCount - 1 ) {
+                            lastPastedCellMultiCol = pastedCellCloneMulti;
+                        }
+                    }
+                }
+            }
+            
+            // 选中新插入的所有列
+            if ( firstPastedCellMultiCol && lastPastedCellMultiCol ) {
+                fakeSelectCells( editor, getCellsBetween( firstPastedCellMultiCol, lastPastedCellMultiCol ) );
+            }
+            
+            editor.fire( 'saveSnapshot' );
+            
+            // Manually fire afterPaste event as we stop pasting to handle everything via our custom handler.
+            setTimeout( function() {
+                editor.fire( 'afterPaste' );
+            }, 0 );
+            
+            return;
+        }
 	}
 
 	function customizeTableCommand( editor, cmds, callback ) {

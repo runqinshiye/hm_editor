@@ -1710,7 +1710,7 @@ $(document).ready(function () {
             // 创建新标签页，启用设计模式
             const result = await window.tabManager.createTab('新模板', {
                 designMode: true,
-                allowModifyDatasource: false
+                allowModifyDatasource: true
             }, content);
 
             if (datasources) {
@@ -2008,14 +2008,35 @@ $(document).ready(function () {
     $('#btnConfirmReadOnly').on('click', async function () {
         try {
             const code = $('#readOnlyCode').val().trim();
+            const elementListText = $('#readOnlyElementList').val().trim();
             const isReadOnly = $('#readOnlyFlag').is(':checked');
 
             const editor = await window.tabManager.getCurrentEditor();
-            editor.setDocReadOnly(code, isReadOnly);
 
+            // 如果输入了元素集合，则调用setElementReadOnly方法
+            if (elementListText) {
+                let elementList = null;
+                try {
+                    elementList = JSON.parse(elementListText);
+                    // 验证是否为数组
+                    if (!Array.isArray(elementList)) {
+                        showAlertDialog('指定元素集合必须是数组格式！');
+                        return;
+                    }
+                } catch (e) {
+                    showAlertDialog('指定元素集合的JSON格式错误，请检查格式！');
+                    return;
+                } 
+                // 调用setElementReadOnly方法
+                editor.setElementReadOnly(code || '', elementList, isReadOnly);
+            } else {
+                // 如果没有输入元素集合，则使用原来的setDocReadOnly方法
+                editor.setDocReadOnly(code, isReadOnly);
+            } 
             // 隐藏对话框并清空输入
             $('.readOnlyDialog').hide();
             $('#readOnlyCode').val('');
+            $('#readOnlyElementList').val('');
 
         } catch (e) {
             console.error('设置只读模式失败:', e);
@@ -2027,6 +2048,7 @@ $(document).ready(function () {
     $('#btnCancelReadOnly').on('click', function () {
         $('.readOnlyDialog').hide();
         $('#readOnlyCode').val('');
+        $('#readOnlyElementList').val('');
     });
 
     // ==================== 质控提醒相关代码 ====================

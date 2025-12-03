@@ -62,6 +62,39 @@ CKEDITOR.dialog.add('datasourceConfig', function (editor) {
                 editor.showNotification("名称或者编码不正确");
                 return false;
             }
+            // 检查是否存在相同 data-hm-code 的数据元
+            if (d['data-hm-code']) {
+                var $doc = $(editor.document.$);
+                var existingElements = $doc.find('[data-hm-code="' + d['data-hm-code'] + '"]');
+                
+                // 如果是编辑模式，排除当前正在编辑的元素
+                if (!this.insertMode) {
+                    var currentElement = editor.contextTargetElement;
+                    if (currentElement && !currentElement.hasAttribute('data-hm-node') && !currentElement.is('button')) {
+                        var $currentElement = $(currentElement.$).closest('[data-hm-node]');
+                        if ($currentElement.length) {
+                            currentElement = new CKEDITOR.dom.element($currentElement[0]);
+                        }
+                    }
+                    var td = editor.elementPath().contains('td');
+                    if (td && td.hasAttribute('data-hm-node')) {
+                        currentElement = td;
+                    }
+                    
+                    // 排除当前元素
+                    if (currentElement && currentElement.$) {
+                        existingElements = existingElements.filter(function() {
+                            return this !== currentElement.$;
+                        });
+                    }
+                }
+                
+                // 如果找到相同编码的数据元，提示并阻止保存
+                if (existingElements.length > 0) {
+                    editor.showNotification("已存在相同编码的数据元，编码不能重复");
+                    return false;
+                }
+            }
             // if (d['data-hm-node'] == 'searchbox' && !d['_searchpair']) {
             //     editor.showNotification("搜索类型数据元对应名称/编码不能为空");
             //     return false;
@@ -78,6 +111,7 @@ CKEDITOR.dialog.add('datasourceConfig', function (editor) {
                     return false;
                 }
             }
+            
             
 
             if (!this.insertMode) {
@@ -400,6 +434,12 @@ function _handleEdit(editor, sourceData) {
     }
 
     element.setAttribute('data-hm-name', sourceData['data-hm-name']);
+    // 更新 data-hm-code
+    if (sourceData['data-hm-code']) {
+        element.setAttribute('data-hm-code', sourceData['data-hm-code']);
+    } else {
+        element.removeAttribute('data-hm-code');
+    }
 
 }
 

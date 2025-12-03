@@ -240,6 +240,14 @@
                         var $table = $(table.$);
                         var $tbody = $table.find('tbody');
                         var $thead = $table.find('thead');
+                        
+                        // 先将 thead 中的所有 th 转换为 td，避免多余的 th 留在 tbody 中
+                        if ($thead.length > 0) {
+                            $thead.find('th').each(function () {
+                                $(this).replaceWith($(this).prop('outerHTML').replace(/th/g, 'td'));
+                            });
+                        }
+                        
                         $tbody.prepend($thead.children());
                         $thead.remove();
 
@@ -258,14 +266,20 @@
                     }else if(evaluateType === 'row' && (headers == '' || (headers != '' && parseInt(headers) + 1 <= table.$.rows[0].cells.length))) {
                         // 横向表格存在标题行
                         var $table = $(table.$);
+                        var $trs = $table.find('tbody').children();
+                        
+                        // 先移除所有行的 hm-table-horizontal-header 类，避免从多行减少到少行时残留多余的类
+                        $trs.each(function(){
+                            $(this).children().removeClass('hm-table-horizontal-header');
+                        });
+                        
+                        // 如果 headers 不为空，给前 headers 列添加 hm-table-horizontal-header 类
                         if(headers != ''){
-                            var $trs = $table.find('tbody').children();
                             $trs.each(function(){
                                 for(var h = 0; h < headers; h++){
                                     $(this).children().eq(h).addClass('hm-table-horizontal-header');
                                 }
                             });
-                            
                         }
                     }
                     // Should we make all first cells in a row TH?
@@ -492,6 +506,8 @@
                                     var dialog = this.getDialog();
                                     var tableType = this.getValue();
                                     var container = dialog.getContentElement('info', 'table-direction-headers-container');
+                                    var dataHeadersSelect = dialog.getContentElement('info', 'dataHeaders');
+                                    var evaluateTypeSelect = dialog.getContentElement('info', 'evaluate-type');
                                     
                                     if (tableType === 'row') {
                                         // 非列表表格：隐藏表格方向和表格标题行
@@ -502,6 +518,11 @@
                                         // 列表类表格：显示表格方向和表格标题行
                                         if (container) {
                                             container.getElement().getParent().setStyle('display', '');
+                                        }
+                                        // 根据表格方向控制表格标题行的启用/禁用状态
+                                        if (evaluateTypeSelect && dataHeadersSelect) {
+                                            // 创建表格时，无论竖向还是横向，标题行都可以修改
+                                            dataHeadersSelect.enable();
                                         }
                                     } else {
                                         // 未选择：隐藏表格方向和表格标题行
@@ -572,6 +593,20 @@
                                 setup: function (selectedTable) {
                                     var t = $(selectedTable).attr('evaluate-type') || '';
                                     this.setValue(t);
+                                },
+                                onChange: function() {
+                                    var dialog = this.getDialog();
+                                    var tableTypeSelect = dialog.getContentElement('info', 'hm-table-type');
+                                    var dataHeadersSelect = dialog.getContentElement('info', 'dataHeaders');
+                                    
+                                    // 只有当表格类型为列表类表格时，才控制标题行的启用/禁用
+                                    if (tableTypeSelect && dataHeadersSelect) {
+                                        var tableType = tableTypeSelect.getValue();
+                                        if (tableType === 'list') {
+                                            // 创建表格时，无论竖向还是横向，标题行都可以修改
+                                            dataHeadersSelect.enable();
+                                        }
+                                    }
                                 },
                                 commit: function (data, selectedTable) {
                                     var value = this.getValue();
