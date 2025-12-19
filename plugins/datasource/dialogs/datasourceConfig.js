@@ -65,7 +65,8 @@ CKEDITOR.dialog.add('datasourceConfig', function (editor) {
             // 检查是否存在相同 data-hm-code 的数据元
             if (d['data-hm-code']) {
                 var $doc = $(editor.document.$);
-                var existingElements = $doc.find('[data-hm-code="' + d['data-hm-code'] + '"]');
+                var $headerTables = $doc.find('table[_paperheader="true"]');
+                var existingElements = $doc.find('[data-hm-code="' + d['data-hm-code'] + '"]').not($headerTables.find('[data-hm-code="' + d['data-hm-code'] + '"]'));
                 
                 // 如果是编辑模式，排除当前正在编辑的元素
                 if (!this.insertMode) {

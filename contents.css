@@ -1043,9 +1043,22 @@ em strong{
     bottom: 0;
     position: absolute;
     width: 100%;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
-/* 分页和打印的误差 / 页脚的占位标签 */
-.hm-page-offset,.hm-fake-page-footer{
+.hm-page-header-group {
+    top: 0;
+    position: absolute;
+    width: 100%;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+/* 分页和打印的误差 / 页眉页脚的占位标签 */
+.hm-page-offset,.hm-fake-page-footer,.hm-fake-page-header{
     visibility: hidden;
 }
 

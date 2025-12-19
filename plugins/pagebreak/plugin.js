@@ -89,6 +89,8 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
 
         // 页脚占位符
         FAKE_PAGE_FOOTER: 'hm-fake-page-footer',
+        // 页眉占位符
+        FAKE_PAGE_HEADER: 'hm-fake-page-header',
 
         //强制分页 class
         FORCE_BREAK: 'force-break',
@@ -451,15 +453,60 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
             var middleLayer = document.createElement('div');
             middleLayer.className = 'hm-page-middleLayer';
             logicPage.appendChild(middleLayer);
-            // 页眉
-            middleLayer.appendChild(paperHeader.cloneNode(true));
-            // 页脚
-            middleLayer.appendChild(paperFooter.cloneNode(true));
+            // 页眉占位符（用于预留页眉空间，放在最前面）
+            var headerPlaceHolder = document.createElement('div');
+            headerPlaceHolder.className = thisCmd.FAKE_PAGE_HEADER;
+            if (thisCmd.AUTO_PAGING_DEBUG) {
+                headerPlaceHolder.style.background = '#aaddaa';
+            }
+            middleLayer.appendChild(headerPlaceHolder);
+            // 页脚（绝对定位 bottom:0，放在页面内容之前，这样选区不会经过它）
+            var clonedFooter = paperFooter.cloneNode(true);
+            middleLayer.appendChild(clonedFooter);
             // 页面元素
             var pageContent = document.createElement('div');
             // pageContent.setAttribute('contenteditable', true);
             pageContent.className = thisCmd.PAGE_CONTENT_CLASS;
             middleLayer.appendChild(pageContent);
+            // 页脚占位符（用于预留页脚空间）
+            var footerPlaceHolder = document.createElement('div');
+            footerPlaceHolder.className = thisCmd.FAKE_PAGE_FOOTER;
+            if (thisCmd.AUTO_PAGING_DEBUG) {
+                footerPlaceHolder.style.background = '#ddaadd';
+            }
+            middleLayer.appendChild(footerPlaceHolder);
+            // 页眉（绝对定位 top:0，放在页面内容之后，这样选区不会经过它）
+            var clonedHeader = paperHeader.cloneNode(true);
+            middleLayer.appendChild(clonedHeader);
+            
+            // 设置页眉占位符高度（初始，同步设置以确保分页计算正确）
+            headerPlaceHolder.style.height = clonedHeader.offsetHeight + 'px';
+            // 设置页脚占位符高度（初始，同步设置以确保分页计算正确）
+            footerPlaceHolder.style.height = clonedFooter.offsetHeight + 'px';
+            
+            // 使用 ResizeObserver 实时监听页眉高度变化
+            if (typeof ResizeObserver !== 'undefined') {
+                var headerObserver = new ResizeObserver(function(entries) {
+                    for (var i = 0; i < entries.length; i++) {
+                        var entry = entries[i];
+                        if (entry.target === clonedHeader) {
+                            headerPlaceHolder.style.height = clonedHeader.offsetHeight + 'px';
+                        }
+                    }
+                });
+                headerObserver.observe(clonedHeader);
+                
+                // 监听页脚高度变化
+                var footerObserver = new ResizeObserver(function(entries) {
+                    for (var i = 0; i < entries.length; i++) {
+                        var entry = entries[i];
+                        if (entry.target === clonedFooter) {
+                            footerPlaceHolder.style.height = clonedFooter.offsetHeight + 'px';
+                        }
+                    }
+                });
+                footerObserver.observe(clonedFooter);
+            }
             // 打印偏移量
             var pageOffsetContainer = document.createElement('div');
             pageOffsetContainer.className = thisCmd.PAGE_OFFSET_CLASS;
@@ -1674,7 +1721,8 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
                             // 在 chrome 中, 表格渲染时是精确渲染; 然而在打印时是向上取整. 故要对每个表格行的误差进行统计. (什么? 两个表并排的情况? 啊哈哈哈哈哈哈)
                             setPageOffset(prevPage, calcPageOffset(prevPage, false));
 
-                            // 预处理2: 添加与页脚同高的占位符
+                            // 预处理2: 添加与页眉页脚同高的占位符
+                            setPageHeaderPlaceHolder(prevPage);
                             setPageFooterPlaceHolder(prevPage);
 
                             // 预处理3: 如果前一页的最后一个元素含有换行符, 需要恢复此换行符.
@@ -2399,6 +2447,307 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
                     }
                 }, null, null, 10);
 
+                // region 跨页选区处理
+                // 解决分页模式下无法跨页选中内容的问题
+                // 方案：Shift+拖动选中后保存选区范围，复制时重新应用
+                (function initCrossPageSelection() {
+                    var savedRange = null; // 保存的跨页选区范围
+                    var removedContentEditables = [];
+
+                    // 获取节点所在的逻辑页
+                    function getLogicPage(node) {
+                        while (node && node.nodeType !== 9) {
+                            if (node.nodeType === 1 && node.classList && node.classList.contains(thisCmd.LOGIC_PAGE_CLASS)) {
+                                return node;
+                            }
+                            node = node.parentNode;
+                        }
+                        return null;
+                    }
+
+                    // 检查当前选区是否跨页
+                    function isSelectionCrossPage() {
+                        var sel = editor.document.$.getSelection();
+                        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+                        
+                        var range = sel.getRangeAt(0);
+                        var startPage = getLogicPage(range.startContainer);
+                        var endPage = getLogicPage(range.endContainer);
+                        
+                        return startPage && endPage && startPage !== endPage;
+                    }
+
+                    // 检查元素是否在页眉、页脚或分页符内部
+                    function isInsideHeaderFooterOrSplitter(el) {
+                        var node = el;
+                        while (node && node.nodeType === 1) {
+                            if (node.classList &&
+                                (node.classList.contains(thisCmd.PAGE_HEADER_CLASS) ||
+                                 node.classList.contains(thisCmd.PAGE_FOOTER_CLASS) ||
+                                 node.classList.contains('hm-page-splitter'))) {
+                                return true;
+                            }
+                            node = node.parentNode;
+                        }
+                        return false;
+                    }
+
+                    // 临时移除所有 contenteditable=false 属性（保留页眉页脚分页符及其内部元素）
+                    function removeContentEditableFalse() {
+                        if (removedContentEditables.length > 0) return;
+                        
+                        var doc = editor.document.$;
+                        var elements = doc.querySelectorAll('[contenteditable="false"]');
+                        for (var i = 0; i < elements.length; i++) {
+                            var el = elements[i];
+                            // 跳过页眉、页脚、分页符及其内部元素，保持它们不可选中
+                            if (isInsideHeaderFooterOrSplitter(el)) {
+                                continue;
+                            }
+                            removedContentEditables.push(el);
+                            el.removeAttribute('contenteditable');
+                        }
+                    }
+
+                    // 恢复 contenteditable=false 属性
+                    function restoreContentEditableFalse() {
+                        if (removedContentEditables.length === 0) return;
+                        
+                        for (var i = 0; i < removedContentEditables.length; i++) {
+                            removedContentEditables[i].setAttribute('contenteditable', 'false');
+                        }
+                        removedContentEditables = [];
+                    }
+
+                    // 保存当前选区
+                    function saveSelection() {
+                        var sel = editor.document.$.getSelection();
+                        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+                            savedRange = sel.getRangeAt(0).cloneRange();
+                            return true;
+                        }
+                        return false;
+                    }
+
+                    // 恢复选区
+                    function restoreSelection() {
+                        if (!savedRange) return false;
+                        
+                        var sel = editor.document.$.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(savedRange);
+                        return true;
+                    }
+
+                    // mousedown: 检测 Shift 键开始跨页选择，或者清除保存的选区
+                    editable.on('mousedown', function(evt) {
+                        if (!editor.HMConfig.realtimePageBreak) return;
+                        if (evt.data.$.button !== 0) return;
+                        
+                        // 如果不是 Shift+点击，清除保存的选区
+                        if (!evt.data.$.shiftKey) {
+                            savedRange = null;
+                            return;
+                        }
+                        
+                        // 按住 Shift 键时启用跨页选择模式
+                        removeContentEditableFalse();
+                    });
+
+                    // mouseup: 如果是跨页选区，保存并恢复 contenteditable
+                    editable.on('mouseup', function(evt) {
+                        if (!editor.HMConfig.realtimePageBreak) return;
+                        
+                        // 检查是否形成了跨页选区
+                        if (isSelectionCrossPage()) {
+                            // 保存选区范围
+                            saveSelection();
+                            console.log('[跨页选区] 已保存跨页选区，按 Ctrl/Cmd+C 复制');
+                            
+                            // 延迟恢复，让用户看到选区效果
+                            setTimeout(function() {
+                                restoreContentEditableFalse();
+                            }, 50);
+                        } else if (removedContentEditables.length > 0) {
+                            // 没有跨页选区，立即恢复
+                            restoreContentEditableFalse();
+                        }
+                    });
+
+                    // 从内容中过滤掉页眉、页脚、分页符
+                    function filterHeaderFooter(html) {
+                        var doc = editor.document.$;
+                        var container = doc.createElement('div');
+                        container.innerHTML = html;
+                        
+                        // 移除页眉、页脚、分页符、占位符
+                        var selectorsToRemove = [
+                            '.' + thisCmd.PAGE_HEADER_CLASS,
+                            '.' + thisCmd.PAGE_FOOTER_CLASS,
+                            '.hm-page-splitter',
+                            '.' + thisCmd.FAKE_PAGE_HEADER,
+                            '.' + thisCmd.FAKE_PAGE_FOOTER
+                        ];
+                        var toRemove = container.querySelectorAll(selectorsToRemove.join(','));
+                        for (var i = 0; i < toRemove.length; i++) {
+                            toRemove[i].parentNode.removeChild(toRemove[i]);
+                        }
+                        
+                        return container.innerHTML;
+                    }
+
+                    // 获取选区的纯文本（过滤页眉页脚）
+                    function getFilteredText(html) {
+                        var doc = editor.document.$;
+                        var container = doc.createElement('div');
+                        container.innerHTML = html;
+                        
+                        // 移除页眉、页脚、分页符、占位符
+                        var selectorsToRemove = [
+                            '.' + thisCmd.PAGE_HEADER_CLASS,
+                            '.' + thisCmd.PAGE_FOOTER_CLASS,
+                            '.hm-page-splitter',
+                            '.' + thisCmd.FAKE_PAGE_HEADER,
+                            '.' + thisCmd.FAKE_PAGE_FOOTER
+                        ];
+                        var toRemove = container.querySelectorAll(selectorsToRemove.join(','));
+                        for (var i = 0; i < toRemove.length; i++) {
+                            toRemove[i].parentNode.removeChild(toRemove[i]);
+                        }
+                        
+                        return container.textContent || container.innerText || '';
+                    }
+
+                    // 使用临时元素复制过滤后的内容（降级方案）
+                    function copyWithTempElement(filteredHtml) {
+                        var doc = editor.document.$;
+                        var sel = doc.getSelection();
+                        
+                        // 保存当前选区
+                        var originalRange = null;
+                        if (sel && sel.rangeCount > 0) {
+                            originalRange = sel.getRangeAt(0).cloneRange();
+                        }
+                        
+                        // 创建临时容器
+                        var tempContainer = doc.createElement('div');
+                        tempContainer.innerHTML = filteredHtml;
+                        tempContainer.style.position = 'fixed';
+                        tempContainer.style.left = '-9999px';
+                        tempContainer.style.top = '0';
+                        tempContainer.setAttribute('contenteditable', 'true');
+                        doc.body.appendChild(tempContainer);
+                        
+                        // 选中临时容器的内容
+                        var range = doc.createRange();
+                        range.selectNodeContents(tempContainer);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        
+                        // 执行复制
+                        var success = false;
+                        try {
+                            success = doc.execCommand('copy');
+                        } catch (err) {
+                            console.log('[跨页选区] execCommand 复制失败:', err);
+                        }
+                        
+                        // 清理临时容器
+                        doc.body.removeChild(tempContainer);
+                        
+                        // 恢复原来的选区
+                        if (originalRange) {
+                            sel.removeAllRanges();
+                            sel.addRange(originalRange);
+                        }
+                        
+                        return success;
+                    }
+
+                    // 监听 keydown，处理 Ctrl/Cmd+C 复制
+                    editor.document.on('keydown', function(evt) {
+                        if (!editor.HMConfig.realtimePageBreak) return;
+                        if (!savedRange) return;
+                        
+                        var e = evt.data.$;
+                        var keyCode = e.keyCode;
+                        var ctrlOrCmd = e.ctrlKey || e.metaKey;
+                        
+                        // Ctrl/Cmd+C
+                        if (ctrlOrCmd && keyCode === 67) {
+                            // 阻止默认行为，我们手动处理复制
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // 临时移除 contenteditable=false
+                            removeContentEditableFalse();
+                            
+                            // 恢复选区
+                            restoreSelection();
+                            
+                            // 获取选区内容并过滤
+                            try {
+                                var sel = editor.document.$.getSelection();
+                                if (sel && sel.rangeCount > 0) {
+                                    var range = sel.getRangeAt(0);
+                                    var fragment = range.cloneContents();
+                                    var tempDiv = editor.document.$.createElement('div');
+                                    tempDiv.appendChild(fragment);
+                                    
+                                    var filteredHtml = filterHeaderFooter(tempDiv.innerHTML);
+                                    var filteredText = getFilteredText(tempDiv.innerHTML);
+                                    
+                                    // 使用 Clipboard API 复制过滤后的内容
+                                    if (navigator.clipboard && navigator.clipboard.write && window.isSecureContext) {
+                                        var htmlBlob = new Blob([filteredHtml], { type: 'text/html' });
+                                        var textBlob = new Blob([filteredText], { type: 'text/plain' });
+                                        var clipboardItem = new ClipboardItem({
+                                            'text/html': htmlBlob,
+                                            'text/plain': textBlob
+                                        });
+                                        navigator.clipboard.write([clipboardItem]).then(function() {
+                                            console.log('[跨页选区] 复制成功（已过滤页眉页脚）');
+                                        }).catch(function(err) {
+                                            console.log('[跨页选区] Clipboard API 失败，使用降级方案:', err);
+                                            // 降级方案：使用临时元素复制
+                                            copyWithTempElement(filteredHtml);
+                                        });
+                                    } else {
+                                        // 降级方案：使用临时元素复制过滤后的内容
+                                        var success = copyWithTempElement(filteredHtml);
+                                        if (success) {
+                                            console.log('[跨页选区] 使用降级方案复制成功（已过滤页眉页脚）');
+                                        }
+                                    }
+                                }
+                            } catch (err) {
+                                console.log('[跨页选区] 复制出错:', err);
+                                editor.document.$.execCommand('copy');
+                            }
+                            
+                            // 恢复 contenteditable=false
+                            setTimeout(function() {
+                                restoreContentEditableFalse();
+                            }, 50);
+                            
+                            // 清除保存的选区
+                            savedRange = null;
+                        }
+                    }, null, null, 1); // 优先级高
+
+                    // 处理鼠标离开编辑器区域后释放的情况
+                    if (editor.document.$) {
+                        editor.document.$.addEventListener('mouseup', function() {
+                            if (isSelectionCrossPage()) {
+                                saveSelection();
+                                setTimeout(function() {
+                                    restoreContentEditableFalse();
+                                }, 50);
+                            }
+                        }, true);
+                    }
+                })();
+                // endregion 跨页选区处理
 
             });
 
@@ -3593,6 +3942,30 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
             node = node.getPrevious();
         }
         return true;
+    }
+
+    // 因为页眉的位置是absolute, 故需要加一个页面高度补正
+    function setPageHeaderPlaceHolder(page) {
+        var middleLayer = page.firstChild;
+        var placeHolder, pageHeader;
+        placeHolder = $(middleLayer).find('>div.' + thisCmd.FAKE_PAGE_HEADER)[0];
+        pageHeader = $(middleLayer).find('>div.' + thisCmd.PAGE_HEADER_CLASS)[0];
+
+        // 肯定有页眉, 不一定有占位符
+        if (!placeHolder) {
+            placeHolder = document.createElement('div');
+            placeHolder.className = thisCmd.FAKE_PAGE_HEADER;
+            // 插入到 middleLayer 的最前面
+            middleLayer.insertBefore(placeHolder, middleLayer.firstChild);
+            if (thisCmd.AUTO_PAGING_DEBUG) {
+                placeHolder.style.background = '#aaddaa';
+            }
+        }
+        if (pageHeader) {
+            placeHolder.style.height = pageHeader.offsetHeight + 'px';
+        } else {
+            console.error('我页眉呢?');
+        }
     }
 
     // 因为页脚的位置是absolute, 故需要加一个页面高度补正

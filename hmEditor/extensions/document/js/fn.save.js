@@ -98,7 +98,6 @@ commonHM.component['documentModel'].fn({
         var sourceObj = {
             data: [] // 非护理表单数据 
         };
-        debugger
         // 处理普通数据元
         _t.handleNormalDataElements($body, sourceObj);
 

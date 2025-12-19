@@ -299,7 +299,7 @@ $(function () {
                         if (ds['dictList'] && ds['dictList'].length > 0) {
                             var items = [];
                             for (var i = 0; i < ds['dictList'].length; i++) {
-                                items.push(ds['dictList'][i]['description'] + '(' + ds['dictList'][i]['val'] + ')');
+                                items.push(ds['dictList'][i]['code'] + '(' + ds['dictList'][i]['val'] + ')');
                             }
                             itemsStr = items.join('#');
                         } else if (ds['type'] == 'L') {

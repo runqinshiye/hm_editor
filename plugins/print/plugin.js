@@ -257,6 +257,80 @@ function dealPrintLabel(editor, syncType) {
     return false;
 }
 /**
+ * 处理续打时隐藏元素的样式，特别处理表格的最后一行
+ * @param {jQuery} hiddenElements 需要隐藏的元素集合
+ * @param {number} height 续打标识线的高度
+ */
+function handleHiddenElementsForContinuePrint(hiddenElements, height) {
+    // 分别处理表格和非表格元素
+    hiddenElements.each(function() {
+        var $elem = $(this);
+        var $table = $elem.closest('table');
+        
+        // 判断是否是表格中的元素
+        if ($table.length > 0) {
+            // 如果是表格中的tr（行）
+            if ($elem.is('tr')) {
+                var $trRow = $elem;
+                // 检查下一个tr是否在续打标识线之下（即续打后显示的第一行）
+                var $nextTr = $trRow.next('tr');
+                var isLastRowBeforeBreakLine = false;
+                
+                if ($nextTr.length > 0 && $trRow.closest('table')[0] === $nextTr.closest('table')[0]) {
+                    // 如果下一个tr在续打标识线之下，说明当前tr是续打标识线之上的最后一行
+                    var nextTrTop = $nextTr.offset().top;
+                    isLastRowBeforeBreakLine = nextTrTop >= height;
+                }
+                
+                if (isLastRowBeforeBreakLine) {
+                    // 如果是续打标识线之上的最后一行，保留border-bottom，只隐藏border-right
+                    $trRow.css("opacity", "1");
+                    $trRow.find('td, th').each(function() {
+                        var $cell = $(this);
+                        $cell.css("opacity", "1");
+                        $cell.css('border-right-color', 'transparent');
+                        $cell.css('border-left-color', 'transparent');
+                        // 保留border-bottom
+                    });
+                } else {
+                    // 如果不是续打标识线之上的最后一行，正常隐藏所有边框
+                    $trRow.css("opacity", "0").css('border-color', 'transparent');
+                    $trRow.find('td, th').css("opacity", "0").css('border-color', 'transparent');
+                }
+            } else if ($elem.is('td, th')) {
+                // 如果是td/th，检查所在行是否是续打标识线之上的最后一行
+                var $cellElem = $elem;
+                var $cellRow = $cellElem.closest('tr');
+                var $nextTrForCell = $cellRow.next('tr');
+                var isCellInLastRowBeforeBreakLine = false;
+                
+                if ($nextTrForCell.length > 0 && $cellRow.closest('table')[0] === $nextTrForCell.closest('table')[0]) {
+                    // 如果下一个tr在续打标识线之下，说明当前行是续打标识线之上的最后一行
+                    var nextTrForCellTop = $nextTrForCell.offset().top;
+                    isCellInLastRowBeforeBreakLine = nextTrForCellTop >= height;
+                }
+                
+                if (isCellInLastRowBeforeBreakLine) {
+                    // 如果是续打标识线之上最后一行的单元格，保留border-bottom，只隐藏border-right
+                    $cellElem.css("opacity", "1");
+                    $cellElem.css('border-right-color', 'transparent');
+                    $cellElem.css('border-left-color', 'transparent');
+                } else {
+                    // 如果不是续打标识线之上最后一行的单元格，正常隐藏所有边框
+                    $cellElem.css("opacity", "0").css('border-color', 'transparent');
+                }
+            } else {
+                // 表格中的其他元素，正常处理
+                $elem.css("opacity", "0").css('border-color', 'transparent');
+            }
+        } else {
+            // 非表格元素，正常处理
+            $elem.css("opacity", "0").css('border-color', 'transparent');
+        }
+    });
+}
+
+/**
  * 处理分页续打标识
  */
 function dealPrintLabelNew(editor, syncType) {
@@ -276,9 +350,12 @@ function dealPrintLabelNew(editor, syncType) {
         // 删除第一页的页脚
         firstPage.find('>>.hm-page-footer-group').css("opacity", "0").css('border-color', 'transparent');
         // 删除第一页的页眉和部分内容
-        firstPage.find('*').filter(function () {
+        var hiddenElements = firstPage.find('*').filter(function () {
             return $(this).offset().top + this.offsetHeight < 1 + height;
-        }).css("opacity", "0").css('border-color', 'transparent');
+        });
+        
+        // 处理隐藏元素的样式，特别处理表格的最后一行
+        handleHiddenElementsForContinuePrint(hiddenElements, height);
         // 删除前面的页
         firstPage.prevAll().remove();
         return true;
@@ -433,6 +510,7 @@ function doPrintChrome(editor, syncType, timeout, download, callback, downloadPd
 
     var printLink = link.clone();
     printLink.setAttribute('href', editorHref + '/print.css');
+
     //printLink.setAttribute('media','print');//dosen't take effect? why?
     head.append(printLink);
 

@@ -273,7 +273,8 @@
 			 * @returns {String} HTML generated from the text.
 			 */
 			transformPlainTextToHtml: function( text ) {
-				var enterMode = this.editor.getSelection().getStartElement().hasAscendant( 'pre', true ) ?
+				var startElement = this.editor.getSelection().getStartElement();
+				var enterMode = ( startElement && startElement.hasAscendant( 'pre', true ) ) ?
 					CKEDITOR.ENTER_BR :
 					this.editor.activeEnterMode;
 

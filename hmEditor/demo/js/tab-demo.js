@@ -75,10 +75,10 @@ class TabEditorManager {
                 },
                 readOnly: false,
                 editorConfig: {
-                    contentsCss: []
+                    contentsCss: [],
+                    // enableContextMenu:false
                 },
-                editShowPaddingTopBottom: true,
-               
+                editShowPaddingTopBottom: true
             }, editorOptions);
             // 存储编辑器实例
             this.editors[tabId] = {

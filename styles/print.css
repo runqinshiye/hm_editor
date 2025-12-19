@@ -7,6 +7,12 @@ table.dashed-border td,table.dashed-border th{
     border: 0px;
 }
 
+/* 修复打印时表格最右边横线超出边框的问题 */
+table {
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
 span[data-hm-node]{
 	color:black !important;
 	background-image:none !important;

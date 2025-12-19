@@ -1870,6 +1870,55 @@
             return null;
         }
 
+        /**
+         * 在表格单元格内删除节点后，清理残留属性并重置选择范围
+         * @param {Object} editor - CKEditor 编辑器实例
+         * @param {Boolean} isInTd - 是否在表格单元格内
+         * @param {jQuery} $td - 表格单元格的jQuery对象
+         * @param {String} eleType - 删除的元素类型
+         * @param {String} tdNodeType - td上的data-hm-node属性值
+         */
+        function handleTableCellNodeDelete(editor, isInTd, $td, eleType, tdNodeType) {
+            if (!isInTd || !$td || $td.length === 0) {
+                return;
+            }
+
+            // 如果删除的不是 cellbox，且 td 上有残留的 data-hm-node 属性（非 cellbox），需要清理
+            if (eleType !== 'cellbox' && tdNodeType && tdNodeType !== 'cellbox') {
+                $td.removeAttr('data-hm-node');
+                $td.removeAttr('data-hm-name');
+                $td.removeAttr('data-hm-id');
+                $td.removeAttr('data-hm-code');
+            }
+
+            var selection = editor.getSelection();
+            selection.reset();
+
+            // 创建新的折叠范围，定位到单元格内
+            var range = editor.createRange();
+            try {
+                var tdElement = new CKEDITOR.dom.element($td[0]);
+                if (tdElement.getChildCount() > 0) {
+                    range.moveToPosition(tdElement.getFirst(), CKEDITOR.POSITION_AFTER_START);
+                } else {
+                    range.moveToElementEditStart(tdElement);
+                }
+                // 确保范围是折叠的
+                range.collapse(true);
+                // 选择范围
+                selection.selectRanges([range]);
+            } catch (e) {
+                // 如果失败，尝试使用默认方式
+                try {
+                    range.moveToElementEditStart(new CKEDITOR.dom.element($td[0]));
+                    range.collapse(true);
+                    selection.selectRanges([range]);
+                } catch (e2) {
+                    // 如果还是失败，不处理，让浏览器自然处理
+                }
+            }
+        }
+
         editor.addCommand('nodeDelete', {
             exec: function (editor) {
                 var $element = $(editor.contextTargetElement.$);
@@ -1878,18 +1927,31 @@
                     $element = $element.parents().filter('[data-hm-node]');
                 }
                 var td = editor.elementPath().contains('td');
-                if (td && td.hasAttribute('data-hm-node')) $element = $(td.$);
+                // 只有当 td 是 cellbox 类型时，才将 $element 设置为 td
+                // 否则，td 上的 data-hm-node 可能是残留属性，不应该影响删除逻辑
+                if (td && td.hasAttribute('data-hm-node') && td.getAttribute('data-hm-node') === 'cellbox') {
+                    $element = $(td.$);
+                }
                 var eleType = $element.attr('data-hm-node');
+                
+                // 检查是否在表格单元格内，用于删除后重置选择范围和清理残留属性
+                var isInTd = $element.closest('td').length > 0;
+                var $td = isInTd ? $element.closest('td') : null;
+                // 保存 td 上的 data-hm-node 属性值，用于删除后判断是否需要清理
+                var tdNodeType = $td && $td.length > 0 ? $td.attr('data-hm-node') : null;
+                
                 switch (eleType) {
                     case 'newtextbox':
                     case 'numbox':
                     case 'timetext':
+                    case 'timebox':
                         $($element[0]).remove();
                         break;
                     case 'cellbox':
                         $element.removeAttr('data-hm-node');
                         $element.removeAttr('data-hm-name');
                         $element.removeAttr('data-hm-id');
+                        $element.removeAttr('data-hm-code');
                         break;
                     case 'textboxwidget':
                         var _widget = getWidgetByElement($element[0]);
@@ -1902,6 +1964,10 @@
                         $element.remove();
                         break;
                 }
+                
+                // 只在表格单元格内删除节点后，重置选择范围以确保是折叠状态
+                // 这样可以避免删除后 ranges[0].collapsed 变成 false 的问题
+                handleTableCellNodeDelete(editor, isInTd, $td, eleType, tdNodeType);
             }
         });
 
