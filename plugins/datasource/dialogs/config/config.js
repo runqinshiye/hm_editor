@@ -92,7 +92,9 @@ function init() {
     var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
     (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
         false;
-    if (allowModify) {
+    // 获取当前选中的类型
+    var currentType = $(".type input[type='radio']:checked").val();
+    if (allowModify && currentType != 'labelbox') {
         $(".row input.ds-code").prop("disabled", false);
         $("#autoGenerateCodeBtn").show();
     } else {
@@ -146,7 +148,17 @@ function changeTypeInit(val,texttype) {
     $('.row.text,.row.searchbox,.row.dropdown,.row.option,.row.barcode,.row.qrcode').hide();
     $('.row .ds-code').hide();
 
-
+    // 标题类数据元不显示按钮
+    var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
+    (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
+    false;
+    if (val == 'labelbox') {
+        $("#autoGenerateCodeBtn").hide();
+    } else if (allowModify) {
+        $("#autoGenerateCodeBtn").show();
+    } else {
+        $("#autoGenerateCodeBtn").hide();
+    }
     /**
      * 标题：只读、可删除
      * 文本：只读、自由录入、可删除、必须双击（诊断、手术、下拉）、默认当前时间(时间)
@@ -399,7 +411,8 @@ function setConfig(data) {
         var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
                           (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
                           false;
-        if (allowModify) {
+        // 标题类数据元不显示按钮
+        if (allowModify && data['data-hm-node'] != 'labelbox') {
             // 允许修改数据元名称和编码
             $("#interact-search").attr('disabled', false);
             $(".row input.ds-code").attr('disabled', false);

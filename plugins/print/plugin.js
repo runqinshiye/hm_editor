@@ -605,7 +605,7 @@ function doPrintChrome(editor, syncType, timeout, download, callback, downloadPd
 
     // 使用已有的 dynamicHeader 函数来传输 html
     var htmlToken = $.ajax({
-        url: '/emr-editor/dynamicHtml',
+        url: editorHref + '/emr-editor/dynamicHtml',
         type: 'post',
         async: false,
         timeout: 2000,

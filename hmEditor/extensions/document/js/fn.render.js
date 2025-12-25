@@ -424,7 +424,9 @@ commonHM.component['documentModel'].fn({
                                 // 检查是否是表格类型数据
                                 if (dataItem.keyCode && dataItem.keyCode.indexOf('TABLE_') === 0) {
                                     // 如果是表格数据，使用_renderTableData处理
-                                    _t._renderTableData($node, dataItem.keyValue);
+                                    // 从keyCode中提取表格名称（去掉TABLE_前缀）
+                                    var tableName = dataItem.keyCode.substring(6);
+                                    _t._renderTableData($node, dataItem.keyValue, tableName);
                                     return;
                                 } else {
                                     _t._bindDataItem($node, dataItem);
@@ -472,16 +474,17 @@ commonHM.component['documentModel'].fn({
      * 渲染列表类表格
      * @param {jQuery} $node 包列表类表格的节点
      * @param {Array} tableData 表格数据二维数组
+     * @param {String} tableName 表格名称
      */
-    _renderTableData: function ($node, tableData) {
+    _renderTableData: function ($node, tableData, tableName) {
         var _t = this;
-        console.log('开始处理表格数据，数据行数:', tableData.length);
+        console.log('开始处理表格数据，数据行数:', tableData.length, '表格名称:', tableName);
 
         try {
-            // 查找列表类表格
-            var $table = $node.find('table[data-hm-datatable][data-hm-table-type="list"]');
+            // 根据表格名称查找列表类表格
+            var $table = $node.find('table[data-hm-datatable="' + tableName + '"][data-hm-table-type="list"]');
             if ($table.length === 0) {
-                console.warn('未找到列表类表格');
+                console.warn('未找到表格名称为 ' + tableName + ' 的列表类表格');
                 return;
             }
             var $tbody = $table.find('tbody');
@@ -1457,6 +1460,11 @@ commonHM.component['documentModel'].fn({
             if (!$tr.length) {
                 return;
             }
+            // 根据所属文档的_readonly属性判断是否显示操作按钮
+            var $widget = $tr.closest('[data-hm-widgetid]');
+            if ($widget.length && $widget.attr('_readonly') === 'true') {
+                return;
+            }
 
             var $tbody = $tr.closest('tbody');
             if (!$tbody.length) {
@@ -1510,6 +1518,11 @@ commonHM.component['documentModel'].fn({
         try {
             var $tr = $(tr);
             if (!$tr.length) {
+                return;
+            }
+            // 根据所属文档的_readonly属性判断是否显示操作按钮
+            var $widget = $tr.closest('[data-hm-widgetid]');
+            if ($widget.length && $widget.attr('_readonly') === 'true') {
                 return;
             }
 

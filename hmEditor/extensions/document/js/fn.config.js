@@ -21,6 +21,9 @@ commonHM.component['documentModel'].fn({
                 $widgetNodes.attr('_readonly', flag ? 'true' : 'false');
                 // 设置是否可编辑
                 $widgetNodes.prop("contenteditable", !flag);
+                if ($widgetNodes.attr("_contenteditable")=='false') {
+                    $widgetNodes.prop("contenteditable", false);
+                }
                 // 设置背景颜色
                 _t.setReadOnlyBgColor($widgetNodes, flag);
                 // 设置简洁模式
