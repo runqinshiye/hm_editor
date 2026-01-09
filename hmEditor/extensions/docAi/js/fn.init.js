@@ -17,11 +17,23 @@ commonHM.component['hmAi'].fn({
         _t.cleanMark();
         var maysonBean = data; //_t.getQcData(_t.config.patientData.progressGuid);
         var _pWindow = parent.window;
-        var aiServer = _pWindow.HMEditorLoader && _pWindow.HMEditorLoader.autherEntity && _pWindow.HMEditorLoader.autherEntity.aiServer;
+        var autherEntity = _pWindow.HMEditorLoader && _pWindow.HMEditorLoader.autherEntity;
+        var aiServer = autherEntity && autherEntity.aiServer;
+        var headers = {};
+        if (autherEntity && autherEntity.authToken) {
+            headers = {
+                "Authorization": "Bearer " + autherEntity.authToken
+            };
+        } else if (autherEntity && autherEntity.huimei_id) {
+            headers = {
+                "huimei_id": autherEntity.huimei_id
+            };
+        }
         //获取警告信息
         _t.utils.request({
             url: aiServer + '/cdss/api/outer/wagon/emr/problems',
             data: maysonBean,
+            headers: headers,
             success: function (result) {
                 //缓存警告信息
                 _t.cacheWarnInfo(result);
@@ -190,7 +202,7 @@ commonHM.component['hmAi'].fn({
             _t.utils.focusInputFirst(this);
         }).on('click', '.r-model-gen-text', function () {
             _t.generator.reOpenPopupProgress(this);
-        }).on('click', function (e) { 
+        }).on('click', function (e) {
             _t.editorTool && _t.editorTool.callCommand('destoryGenPopup');
             _t.$body.attr('contenteditable', 'true');
             if (_t.generator.progressFlag != 1) {

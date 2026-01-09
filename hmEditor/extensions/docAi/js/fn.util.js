@@ -134,18 +134,13 @@ commonHM.component['hmAi'].fnSub("utils", {
      * http请求
      * @param {*} opts
      */
-    request: function (opts) {
-        var _t = this;
-        var headers = {
-                "Authorization": "Bearer " + localStorage.getItem('HMAccessToken')
-            },
-            headers = Object.assign(headers, opts.heders || {});
+    request: function (opts) { 
         $.ajax({
             type: opts.type || "POST",
             url: opts.url,
             contentType: 'application/json; charset=utf-8',
             data: JSON.stringify(opts.data || {}),
-            headers: headers,
+            headers: opts.headers,
             success: function (res) {
                 res.head = res.head || {};
                 if (res.code == 200 || res.head.error == 0) {
