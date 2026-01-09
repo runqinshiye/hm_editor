@@ -8,7 +8,7 @@ var path = require('path');
 try {
   const { registerFont } = require('canvas');
   registerFont(path.join(__dirname, '../fontPackage/simhei.ttf'), { family: 'SimHei' });
-  console.log('已注册SimHei字体');
+  //console.log('已注册SimHei字体');
 } catch (e) {
   console.warn('未能注册SimHei字体，中文可能显示异常:', e.message);
 }

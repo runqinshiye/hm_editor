@@ -1021,40 +1021,148 @@ $(document).ready(function () {
             $('.readOnlyDialog').show();
         }
     });
+    // 处理修订模式开关变化的函数
+    async function handleReviseFlagChange() {
+        const slider = $(this).siblings('.slider');
+        const sliderCircle = slider.find('.slider-circle');
+        const labelText = $(this).closest('label').find('.switch-label-text');
+        if (this.checked) {
+            // 开关打开时，启用修订模式
+            slider.css('background-color', '#4CAF50');
+            sliderCircle.css('transform', 'translateX(26px)');
+            labelText.text('启用');
+            // 隐藏修订选项
+            $('#reviseOptions').hide();
+        } else {
+            // 开关关闭时，关闭修订模式
+            slider.css('background-color', '#ccc');
+            sliderCircle.css('transform', 'translateX(0)');
+            labelText.text('关闭');
+            
+            // 检查是否有修订记录
+            try {
+                const editor = await window.tabManager.getCurrentEditor();
+                if (!editor || !editor.editor || !editor.editor.document) {
+                    console.error('编辑器文档未准备好');
+                    $('#reviseOptions').hide();
+                    return;
+                }
+                const $body = $(editor.editor.document.getBody().$);
+                const hasRevisions = $body.find('.hm_revise_ins, .hm_revise_del').length > 0;
+                
+                if (hasRevisions) {
+                    // 有修订记录，显示选项
+                    $('#reviseOptions').show();
+                    // 默认选择保留修订内容
+                    $('#reviseAction').val('retain');
+                } else {
+                    // 没有修订记录，隐藏选项
+                    $('#reviseOptions').hide();
+                }
+            } catch (error) {
+                console.error('检查修订记录失败:', error);
+                // 如果检查失败，隐藏选项
+                $('#reviseOptions').hide();
+            }
+        }
+    }
+
     //修订模式
     $('#btnRevise').on('click', async function () {
         if (!window.tabManager.currentTabId) {
             showEditorNotOpenDialog('修订模式');
             return;
         }
-        // 显示修订模式弹框
-        $('.reviseDialog').show();
-    });
-
-    // 开关按钮样式变化
-    $('.switch-flag').on('change', function () {
-        const slider = $(this).siblings('.slider');
-        const sliderCircle = slider.find('.slider-circle');
-        const labelText = $(this).closest('label').find('.switch-label-text');
-        if (this.checked) {
-            // 开关打开时，启用只读模式
-            slider.css('background-color', '#4CAF50');
-            sliderCircle.css('transform', 'translateX(26px)');
-            labelText.text('启用');
-        } else {
-            // 开关关闭时，关闭只读模式
-            slider.css('background-color', '#ccc');
-            sliderCircle.css('transform', 'translateX(0)');
-            labelText.text('关闭');
+        try {
+            // 获取当前编辑器实例
+            const editor = await window.tabManager.getCurrentEditor();
+            
+            // 检查编辑器是否支持获取修订模式状态
+            if (!editor || !editor.editor.HMConfig) {
+                showAlertDialog('编辑器不支持获取修订模式状态');
+                return;
+            }
+            
+            // 获取当前文档的修订模式状态
+            const currentReviseMode = editor.editor.HMConfig.reviseMode === true;
+            
+            // 先解绑change事件，设置开关状态（避免触发change事件）
+            $('#reviseFlag').off('change.revise').prop('checked', currentReviseMode);
+            
+            // 同步开关按钮的样式状态
+            const slider = $('#reviseFlag').siblings('.slider');
+            const sliderCircle = slider.find('.slider-circle');
+            const labelText = $('#reviseFlag').closest('label').find('.switch-label-text');
+            
+            if (currentReviseMode) {
+                slider.css('background-color', '#4CAF50');
+                sliderCircle.css('transform', 'translateX(26px)');
+                labelText.text('启用');
+                // 隐藏修订选项
+                $('#reviseOptions').hide();
+            } else {
+                slider.css('background-color', '#ccc');
+                sliderCircle.css('transform', 'translateX(0)');
+                labelText.text('关闭');
+                
+                // 检查是否有修订记录
+                if (!editor || !editor.editor || !editor.editor.document) {
+                    console.error('编辑器文档未准备好');
+                    $('#reviseOptions').hide();
+                } else {
+                    const $body = $(editor.editor.document.getBody().$);
+                    const hasRevisions = $body.find('.hm_revise_ins, .hm_revise_del').length > 0;
+                    
+                    if (hasRevisions) {
+                        // 有修订记录，显示选项
+                        $('#reviseOptions').show();
+                        // 默认选择保留修订内容
+                        $('#reviseAction').val('retain');
+                    } else {
+                        // 没有修订记录，隐藏选项
+                        $('#reviseOptions').hide();
+                    }
+                }
+            }
+            
+            // 重新绑定change事件（使用命名空间避免重复绑定）
+            $('#reviseFlag').off('change.revise').on('change.revise', handleReviseFlagChange);
+            
+            // 显示修订模式弹框
+            $('.reviseDialog').show();
+        } catch (error) {
+            console.error('获取当前修订模式状态失败:', error);
+            // 如果获取失败，仍然显示弹框，但使用默认状态
+            $('#reviseFlag').off('change.revise').prop('checked', false);
+            $('#reviseOptions').hide();
+            $('#reviseFlag').off('change.revise').on('change.revise', handleReviseFlagChange);
+            $('.reviseDialog').show();
         }
     });
+
+    // 开关按钮样式变化（使用统一的处理函数，使用命名空间）
+    $('#reviseFlag').off('change.revise').on('change.revise', handleReviseFlagChange);
 
     // 确认设置修订模式
     $('#btnConfirmRevise').on('click', async function () {
         try {
             const isReviseMode = $('#reviseFlag').is(':checked');
             const editor = await window.tabManager.getCurrentEditor();
-            editor.setDocReviseMode(isReviseMode,false);
+            
+            let retainModify = undefined;
+            
+            // 如果关闭修订模式，且显示了修订选项，则根据用户选择设置 retainModify
+            if (!isReviseMode && $('#reviseOptions').is(':visible')) {
+                const selectedAction = $('#reviseAction').val();
+                retainModify = selectedAction === 'retain';
+            }
+            
+            // 如果 retainModify 有值，则传入参数，否则不传（会弹框）
+            if (retainModify !== undefined) {
+                editor.setDocReviseMode(isReviseMode, retainModify);
+            } else {
+                editor.setDocReviseMode(isReviseMode);
+            }
 
             // 隐藏对话框
             $('.reviseDialog').hide();

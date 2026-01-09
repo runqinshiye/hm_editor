@@ -126,3 +126,4 @@ mqsource
 .cursor
 .specstory
 editorDist
+/*.cursorindexingignore

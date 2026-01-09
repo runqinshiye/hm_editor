@@ -41,9 +41,16 @@ app.engine('dot',async function (path, options, callback) {
     callback(null, html);
 });
 
-app.use(express.static(__dirname + '/'));
-app.use(express.static(__dirname + '/editorDist'));
+// "/" 路径按优先级访问：/hmEditor > /editorDist > /
 app.use(express.static(__dirname + '/hmEditor'));
+app.use(express.static(__dirname + '/editorDist'));
+app.use(express.static(__dirname + '/'));
+
+// "/hmEditor" 路径转发到 "/"，可以访问 /、/editorDist、/hmEditor
+app.use('/hmEditor', express.static(__dirname + '/hmEditor'));
+app.use('/hmEditor', express.static(__dirname + '/editorDist'));
+app.use('/hmEditor', express.static(__dirname + '/'));
+
 app.use('/emr-editor/public', express.static(__dirname + '/public'));
 
 app.use('/emr-editor/album',
@@ -58,8 +65,27 @@ app.use('/mcp-server', mcpServer.router);
 app.use('/ai-chat', aiChat);
 
 var server = app.listen(process.env.PORT||3071,'0.0.0.0',function(){
-	console.log('ready...');
-	console.log('http://127.0.0.1:'+(process.env.PORT||3071)+'/demo/index.html');
+	var port = process.env.PORT||3071;
+	var baseUrl = 'http://127.0.0.1:' + port;
+	
+	console.log('\n========================================');
+	console.log('欢迎使用 惠每智能电子病历编辑器');
+	console.log('官网地址：https://editor.huimei.com/');
+	console.log('========================================\n');
+	
+	console.log('📄 Demo 页面地址：');
+	console.log('   ' + baseUrl + '/demo/index.html');
+	console.log('或 ' + baseUrl + '/hmEditor/demo/index.html');
+	console.log('');
+	
+	console.log('📦 JS 引用方式：');
+	console.log('   <script src="' + baseUrl + '/hmEditor/iframe/HmEditorIfame.js"></script>');
+	console.log('');
+	
+	console.log('🔗 SDK Host 地址：');
+	console.log('   ' + baseUrl + '/hmEditor');
+	console.log('\n========================================\n');
+
 });
 
 // 注册MCP WebSocket服务

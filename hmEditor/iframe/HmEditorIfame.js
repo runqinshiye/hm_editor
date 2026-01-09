@@ -672,7 +672,7 @@
                 throw new Error('AI令牌不能为空');
             }
             localStorage.setItem('HMAccessToken', token);
-        },
+        }
     });
 
     // 导出HMEditor对象

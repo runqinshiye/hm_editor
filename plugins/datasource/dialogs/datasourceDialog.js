@@ -127,12 +127,28 @@ $(function () {
                 ds['nodeName'] = nodeType;
                 return;
             }
+            
+            // 如果已经显式设置了 nodeName（如单选、多选等），则保留原值
+            var validNodeNames = ['时间', '纯文本', '数字文本', '下拉', '下拉多选', '搜索', '单元', '单选', '多选'];
+            if(ds['nodeName'] && validNodeNames.indexOf(ds['nodeName']) > -1){
+                return;
+            }
+            
             if(ds['name'].indexOf('[$日期_时间$]') > 0){
                 ds['nodeName'] = '单元';
                 return;
             }
             if ((ds['dictList'] && ds['dictList'].length > 0) || ds['type'] == 'L') {
-                nodeType = '下拉';
+                // 根据 selectMode 区分：单选(radiobox)、多选(checkbox)、下拉(单选)、下拉多选
+                if(ds['selectMode'] == '单选' || ds['selectMode'] == 'radio'){
+                    nodeType = '单选';
+                }else if(ds['selectMode'] == '多选' || ds['selectMode'] == 'checkbox'){
+                    nodeType = '多选';
+                }else if(ds['selectMode'] == '下拉多选' || ds['selectMode'] == 'dropdownMultiple'){
+                    nodeType = '下拉多选';
+                }else{
+                    nodeType = '下拉';
+                }
             } else {
                 var type = ds['type'] || '';
                 if(type.indexOf('D') == 0){
@@ -293,7 +309,7 @@ $(function () {
                 }else if(nodeType == '数字文本'){
                     data['data-hm-node'] = 'newtextbox';
                     data['_texttype'] = '数字文本';
-                }else if(nodeType == '下拉'){
+                }else if(nodeType == '下拉' || nodeType == '下拉多选'){
                     function c(ds){
                         var itemsStr = "";
                         if (ds['dictList'] && ds['dictList'].length > 0) {
@@ -304,6 +320,8 @@ $(function () {
                             itemsStr = items.join('#');
                         } else if (ds['type'] == 'L') {
                             itemsStr = "是#否";
+                        } else if (ds['items']) {
+                            itemsStr = ds['items'];
                         }
                         return itemsStr;
                     }
@@ -312,7 +330,8 @@ $(function () {
                     data['data-hm-items'] = c(datasource);
                     data['_click'] = 'true';
                     data['_jointsymbol'] = ',';
-                    data['_selecttype'] = '单选';
+                    // 下拉多选使用"多选"，普通下拉使用"单选"
+                    data['_selecttype'] = (nodeType == '下拉多选') ? '多选' : '单选';
                 }else if(nodeType == '搜索'){
                     data['data-hm-node'] = 'searchbox';
                     var n = data['data-hm-name'];
@@ -338,6 +357,17 @@ $(function () {
 
                 }else if(nodeType == '单元'){
                     data['data-hm-node'] = 'cellbox';
+                }else if(nodeType == '单选' || nodeType == '多选'){
+                    // 单选和多选共用选项解析逻辑
+                    function getSelectItems(ds){
+                        if (ds['dictList'] && ds['dictList'].length > 0) {
+                            return ds['dictList'].map(function(item){ return item['val']; }).join('#');
+                        }
+                        return ds['items'] || '';
+                    }
+                    data['data-hm-node'] = (nodeType == '单选') ? 'radiobox' : 'checkbox';
+                    data['data-hm-items'] = getSelectItems(datasource);
+                    data['items'] = data['data-hm-items'].split('#');
                 }else{
                     data['data-hm-node'] = 'newtextbox';
                     data['_texttype'] = '纯文本';

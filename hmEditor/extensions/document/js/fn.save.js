@@ -442,7 +442,7 @@ commonHM.component['documentModel'].fn({
             if (!_con.attr('_placeholdertext')) {
                 // 优化文本获取逻辑，处理包含expressionbox等复杂内容的情况
                 var contentArray = [];
-                console.log(_con.contents());
+                //console.log(_con.contents());
                 // 遍历所有子节点，按顺序获取内容
                 _con.contents().each(function () {
                     if (this.nodeType === 3) { // 文本节点

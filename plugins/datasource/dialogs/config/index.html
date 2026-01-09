@@ -168,6 +168,18 @@
                                 <input _type="data-hm-items" type="text" class="form-control col-auto check"
                                     placeholder="值1(编码1)#值2(编码2)" style="width: 395px;">
                                 <button class="check" title="值和编码调换" onclick="revertItems()">翻转</button>
+                                <div class="breakline" style="margin-top:10px;"></div>
+                                <span class="label check label-txt">分割样式：</span>
+                                <select _type="_separator_type" id="separatorTypeSelect" class="form-select form-select-sm check"
+                                    aria-label=".form-select-sm example" style="width: 120px;">
+                                    <option value="space">空格</option>
+                                    <option value="comma_cn">逗号(中文)</option>
+                                    <option value="comma_en">逗号(英文)</option>
+                                    <option value="newline">换行</option>
+                                    <option value="other">其他</option>
+                                </select>
+                                <input _type="_separator_value" id="separatorValueInput" type="text" class="form-control col-auto check"
+                                    style="width: 100px; margin-left: 10px;" value="&nbsp;">
                             </div>
                             <div class="row searchbox">
                                 <span class="label">搜索类型：</span>

@@ -81,7 +81,7 @@ function init() {
         }
         textTypeChange(t);
         changeTypeInit('newtextbox',t);
-    })
+    });
     // 添加搜索返回复选框的控制逻辑
     $('input[_type="_searchreturn"]').change(function() {
         if($(this).prop('checked')) {
@@ -89,6 +89,39 @@ function init() {
             $('input[_type="_searchreturn"]').not(this).prop('checked', false);
         }
     });
+    // 添加分割样式下拉框变化事件监听
+    $('#separatorTypeSelect').change(function() {
+        var selectedType = $(this).val();
+        var separatorValue = '';
+        switch(selectedType) {
+            case 'space':
+                separatorValue = '&nbsp;';
+                break;
+            case 'comma_cn':
+                separatorValue = '，';
+                break;
+            case 'comma_en':
+                separatorValue = ',';
+                break;
+            case 'newline':
+                separatorValue = '<br>';
+                break;
+            case 'other':
+                separatorValue = '';
+                break;
+        }
+        $('#separatorValueInput').val(separatorValue);
+        // 如果选择"其他"，输入框可编辑；否则只读
+        if(selectedType === 'other') {
+            $('#separatorValueInput').prop('readonly', false);
+        } else {
+            $('#separatorValueInput').prop('readonly', true);
+        }
+    });
+    // 初始化分割样式输入框为只读（默认空格）
+    $('#separatorValueInput').prop('readonly', true);
+    // 初始化分割样式默认值
+    $('#separatorValueInput').val('&nbsp;');
     var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
     (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
         false;
@@ -292,7 +325,7 @@ function changeDsInit(ds) {
     if (ds['dictList'] && ds['dictList'].length > 0) {
         var items = [];
         for (i = 0; i < ds['dictList'].length; i++) {
-            items.push(ds['dictList'][i]['description'] + '(' + ds['dictList'][i]['val'] + ')');
+            items.push(ds['dictList'][i]['code'] + '(' + ds['dictList'][i]['val'] + ')');
         }
         itemsStr = items.join('#');
     } else if (ds['type'] == 'L') {
@@ -301,7 +334,7 @@ function changeDsInit(ds) {
 
 
     if (itemsStr) {
-        $('input.check').val(itemsStr);
+        $('input.check[_type="data-hm-items"]').val(itemsStr);
         $('select[_type="_texttype"]').find('option[value="下拉"]').prop("selected", true);
 
         if (textFlag) {
@@ -315,7 +348,7 @@ function changeDsInit(ds) {
         }
 
     } else {
-        $('input.check').val('');
+        $('input.check[_type="data-hm-items"]').val('');
         $('select[_type="_texttype"]').find('option[value="纯文本"]').prop("selected", true);
         if (textFlag) {
             $('.reg').show();
@@ -513,6 +546,22 @@ function setConfig(data) {
             $('input[_type="_searchreturn"][value="' + data['_searchreturn'] + '"]').prop('checked', true);
         }
     }
+    // 设置分割样式
+    setSeparator();
+    function setSeparator(){
+        var separatorType = data['_separator_type'] || 'space';
+        var separatorValue = data['_separator_value'] || '&nbsp;';
+        
+        $('#separatorTypeSelect').val(separatorType);
+        $('#separatorValueInput').val(separatorValue);
+        
+        // 如果选择"其他"，输入框可编辑；否则只读
+        if(separatorType === 'other') {
+            $('#separatorValueInput').prop('readonly', false);
+        } else {
+            $('#separatorValueInput').prop('readonly', true);
+        }
+    }
 }
 function config() {
     var d = {};
@@ -688,6 +737,10 @@ function config() {
         }
         if (texttype != '二维码') {
             remove(['_qrcode_width', '_qrcode_height', '_qrcode_error_level', '_qrcode_text_position']);
+        }
+        // 分割样式只对单选和多选类型有效
+        if (nodeType != 'checkbox' && nodeType != 'radiobox') {
+            remove(['_separator_type', '_separator_value']);
         }
         function remove(keys) {
             for (var i = 0; i < keys.length; i++) {

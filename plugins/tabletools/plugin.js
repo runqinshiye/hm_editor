@@ -873,14 +873,20 @@
 			}
 
 			// Swip empty <tr> left at the end of table due to the merging.
-			var trs = new CKEDITOR.dom.nodeList( table.$.rows ),
+			// 重新构建表格映射，用于检查空行是否被 rowspan 占用
+			var newMap = CKEDITOR.tools.buildTableMap( table ),
+				trs = new CKEDITOR.dom.nodeList( table.$.rows ),
 				count = trs.count();
 
 			for ( i = count - 1; i >= 0; i-- ) {
 				var tailTr = trs.getItem( i );
 				if ( !tailTr.$.cells.length ) {
+					// 检查该行是否被上面行的 rowspan 单元格占用
+					// 如果 newMap[i] 存在且有元素，说明该行被 rowspan 占用，不应删除
+					if ( newMap[ i ] && newMap[ i ].length > 0 ) {
+						continue;
+					}
 					tailTr.remove();
-					count++;
 					continue;
 				}
 			}

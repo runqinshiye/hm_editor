@@ -256,79 +256,6 @@ function dealPrintLabel(editor, syncType) {
     editor.showNotification("请先设置续打开始标识！");
     return false;
 }
-/**
- * 处理续打时隐藏元素的样式，特别处理表格的最后一行
- * @param {jQuery} hiddenElements 需要隐藏的元素集合
- * @param {number} height 续打标识线的高度
- */
-function handleHiddenElementsForContinuePrint(hiddenElements, height) {
-    // 分别处理表格和非表格元素
-    hiddenElements.each(function() {
-        var $elem = $(this);
-        var $table = $elem.closest('table');
-        
-        // 判断是否是表格中的元素
-        if ($table.length > 0) {
-            // 如果是表格中的tr（行）
-            if ($elem.is('tr')) {
-                var $trRow = $elem;
-                // 检查下一个tr是否在续打标识线之下（即续打后显示的第一行）
-                var $nextTr = $trRow.next('tr');
-                var isLastRowBeforeBreakLine = false;
-                
-                if ($nextTr.length > 0 && $trRow.closest('table')[0] === $nextTr.closest('table')[0]) {
-                    // 如果下一个tr在续打标识线之下，说明当前tr是续打标识线之上的最后一行
-                    var nextTrTop = $nextTr.offset().top;
-                    isLastRowBeforeBreakLine = nextTrTop >= height;
-                }
-                
-                if (isLastRowBeforeBreakLine) {
-                    // 如果是续打标识线之上的最后一行，保留border-bottom，只隐藏border-right
-                    $trRow.css("opacity", "1");
-                    $trRow.find('td, th').each(function() {
-                        var $cell = $(this);
-                        $cell.css("opacity", "1");
-                        $cell.css('border-right-color', 'transparent');
-                        $cell.css('border-left-color', 'transparent');
-                        // 保留border-bottom
-                    });
-                } else {
-                    // 如果不是续打标识线之上的最后一行，正常隐藏所有边框
-                    $trRow.css("opacity", "0").css('border-color', 'transparent');
-                    $trRow.find('td, th').css("opacity", "0").css('border-color', 'transparent');
-                }
-            } else if ($elem.is('td, th')) {
-                // 如果是td/th，检查所在行是否是续打标识线之上的最后一行
-                var $cellElem = $elem;
-                var $cellRow = $cellElem.closest('tr');
-                var $nextTrForCell = $cellRow.next('tr');
-                var isCellInLastRowBeforeBreakLine = false;
-                
-                if ($nextTrForCell.length > 0 && $cellRow.closest('table')[0] === $nextTrForCell.closest('table')[0]) {
-                    // 如果下一个tr在续打标识线之下，说明当前行是续打标识线之上的最后一行
-                    var nextTrForCellTop = $nextTrForCell.offset().top;
-                    isCellInLastRowBeforeBreakLine = nextTrForCellTop >= height;
-                }
-                
-                if (isCellInLastRowBeforeBreakLine) {
-                    // 如果是续打标识线之上最后一行的单元格，保留border-bottom，只隐藏border-right
-                    $cellElem.css("opacity", "1");
-                    $cellElem.css('border-right-color', 'transparent');
-                    $cellElem.css('border-left-color', 'transparent');
-                } else {
-                    // 如果不是续打标识线之上最后一行的单元格，正常隐藏所有边框
-                    $cellElem.css("opacity", "0").css('border-color', 'transparent');
-                }
-            } else {
-                // 表格中的其他元素，正常处理
-                $elem.css("opacity", "0").css('border-color', 'transparent');
-            }
-        } else {
-            // 非表格元素，正常处理
-            $elem.css("opacity", "0").css('border-color', 'transparent');
-        }
-    });
-}
 
 /**
  * 处理分页续打标识
@@ -340,28 +267,63 @@ function dealPrintLabelNew(editor, syncType) {
         breakLineEleNew.remove();
         return true;
     }
-    // 新续打
-    if (breakLineEleNew.length > 0) {
-        var height = parseFloat(breakLineEleNew.css('height'));
+    
+    var breakLineEleNewStart = $body.parent().find('>.breakLineEleNewStart');
+    var breakLineEleNewEnd = $body.parent().find('>.breakLineEleNewEnd');
+    
+    // 新续打 - 处理开始标识
+    if (breakLineEleNewStart.length > 0) {
+        var startHeight = parseFloat(breakLineEleNewStart.css('height'));
         // 第一页
         var firstPage = $body.find('>').filter(function () {
-            return $(this).offset().top + this.offsetHeight > height;
+            return $(this).offset().top + this.offsetHeight > startHeight;
         }).first();
         // 删除第一页的页脚
         firstPage.find('>>.hm-page-footer-group').css("opacity", "0").css('border-color', 'transparent');
         // 删除第一页的页眉和部分内容
-        var hiddenElements = firstPage.find('*').filter(function () {
-            return $(this).offset().top + this.offsetHeight < 1 + height;
-        });
-        
-        // 处理隐藏元素的样式，特别处理表格的最后一行
-        handleHiddenElementsForContinuePrint(hiddenElements, height);
+        firstPage.find('*').filter(function () {
+            return $(this).offset().top + this.offsetHeight < 1 + startHeight;
+        }).css("opacity", "0").css('border-color', 'transparent');
+
         // 删除前面的页
         firstPage.prevAll().remove();
-        return true;
     }
-    editor.showNotification("请先设置续打开始标识！");
-    return false;
+    
+    // 新续打 - 处理结束标识
+    if (breakLineEleNewEnd.length > 0) {
+        // 结束标识遮罩的 top 值就是结束标识的位置
+        var endHeight = parseFloat(breakLineEleNewEnd.css('top')) || parseFloat(breakLineEleNewEnd.css('height'));
+        // 找到结束标识所在的页面
+        var endPage = $body.find('>').filter(function () {
+            return $(this).offset().top + this.offsetHeight > endHeight;
+        }).first();
+        
+        if (endPage.length > 0) {
+            // 删除结束标识所在页面之后的所有页面
+            endPage.nextAll().remove();
+            // 删除结束标识所在页面中结束标识之后的内容
+            var hiddenElements = endPage.find('*').filter(function () {
+                return $(this).offset().top > endHeight;
+            });
+            hiddenElements.css("opacity", "0").css('border-color', 'transparent')
+                .find('*').css("opacity", "0").css('border-color', 'transparent');
+        } else {
+            // 如果结束标识在最后一页，删除结束标识之后的所有内容
+            var hiddenElements = $body.find('*').filter(function () {
+                return $(this).offset().top > endHeight;
+            });
+            hiddenElements.css("opacity", "0").css('border-color', 'transparent')
+                .find('*').css("opacity", "0").css('border-color', 'transparent');
+        }
+    }
+    
+    // 如果只有结束标识，提示需要设置开始标识
+    if (breakLineEleNewStart.length === 0 && breakLineEleNewEnd.length === 0) {
+        editor.showNotification("请先设置续打开始标识！");
+        return false;
+    }
+    
+    return true;
 }
 
 function setPrintPageHFooterStyle(doc) {
@@ -1075,7 +1037,7 @@ function checkDaiwenFont(body, papareHeaderStr, papareFooterStr) {
                     execPrintCommand(editor, pluginName, '续打');
                 }
             };
-
+            
             editor.ui.add('Print', CKEDITOR.UI_MENUBUTTON, {
                 label: '打印',
                 command: pluginName,

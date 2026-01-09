@@ -1,6 +1,6 @@
 {
   "name": "hmEditor",
-  "version": "1.0.0",
+  "version": "2.2.3",
   "author": "HM-Fe",
   "description": "The development version of CKEditor - JavaScript WYSIWYG web text editor.",
   "dependencies": {

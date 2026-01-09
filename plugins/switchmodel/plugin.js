@@ -30,6 +30,8 @@
                     if ($body.find('.switchModel').length == 0) {
                         $body.html("<div contenteditable='false' class='switchModel'>" + $body.html() + "</div>");
                         $body.find('.emrWidget-content').attr('contenteditable', 'false').attr('_contenteditable', 'false');
+                        // 设置单元类型数据元可编辑
+                        $body.find('td[data-hm-node="cellbox"], th[data-hm-node="cellbox"]').attr('contenteditable', 'true');
                     }
                 } else {
                     if ($body.find('.switchModel').length > 0) {
@@ -37,6 +39,8 @@
                     }
                     // 编辑模式 其他内容也可以编辑
                     $body.find('.emrWidget-content').attr('contenteditable', 'true').removeAttr('_contenteditable');
+                    // 移除单元类型数据元的contenteditable属性（恢复默认状态）
+                    $body.find('td[data-hm-node="cellbox"], th[data-hm-node="cellbox"]').removeAttr('contenteditable');
                 }
             });
             editor.ui.addRichCombo('SwitchModel', {

@@ -667,22 +667,87 @@ CKEDITOR.plugins.add('document', {
             // 取消标志
             if (toggler === 'cancelSettingUp') {
                 editor.document.find('.breakLineEleNew').remove();
+                var $body = $(editor.document.getBody().$);
+                $body.parent().find('>.breakLineEleNewStart').remove();
+                $body.parent().find('>.breakLineEleNewEnd').remove();
                 return;
             }
 
             // 设置标志
             var element = editor.elementPath();
-            // 创建遮罩
-            var mask = new CKEDITOR.dom.element('div');
-            mask.setStyle('height', $(element.lastElement.$).offset().top + 'px');
-            mask.addClass('breakLineEleNew');
-            editor.document.find('.breakLineEleNew').remove();
-            editor.document.getBody().getParent().append(mask);
+            var body = editor.document.getBody();
+            var $body = $(body.$);
+            
+            if (toggler === 'settingUpNew') {
+                // 设置开始标识
+                var startMask = $body.parent().find('>.breakLineEleNewStart');
+                if (startMask.length > 0) {
+                    startMask.remove();
+                }
+                var startHeight = $(element.lastElement.$).offset().top;
+                var mask = new CKEDITOR.dom.element('div');
+                mask.setStyle('height', startHeight + 'px');
+                mask.addClass('breakLineEleNew');
+                mask.addClass('breakLineEleNewStart');
+                editor.document.find('.breakLineEleNewStart').remove();
+                editor.document.getBody().getParent().append(mask);
+                
+                // 如果结束标识在开始标识之前，则删除结束标识
+                var endMask = $body.parent().find('>.breakLineEleNewEnd');
+                if (endMask.length > 0) {
+                    // 结束标识的 top 就是位置
+                    var endTop = parseFloat(endMask.css('top'));
+                    // 开始标识的 height 就是位置
+                    if (endTop && endTop <= startHeight) {
+                        endMask.remove();
+                    }
+                }
+            } else if (toggler === 'settingUpEndNew') {
+                // 设置结束标识
+                var endMask = $body.parent().find('>.breakLineEleNewEnd');
+                if (endMask.length > 0) {
+                    endMask.remove();
+                }
+                var endHeight = $(element.lastElement.$).offset().top;
+                var mask = new CKEDITOR.dom.element('div');
+                // 结束标识遮罩从结束位置开始，向下延伸到文档底部
+                mask.setStyle('top', endHeight + 'px');
+                // 计算文档的实际高度，遮罩高度设置为从结束位置到文档底部的实际距离
+                var bodyHeight = $body.height();
+                var bodyOffsetTop = $body.offset().top;
+                var documentBottom = bodyOffsetTop + bodyHeight;
+                // 计算从结束位置到文档底部的实际距离
+                var maskHeight = documentBottom - endHeight;
+                // 确保高度至少为0，避免负数
+                maskHeight = Math.max(maskHeight, 0);
+                mask.setStyle('height', maskHeight + 'px');
+                mask.addClass('breakLineEleNew');
+                mask.addClass('breakLineEleNewEnd');
+                editor.document.find('.breakLineEleNewEnd').remove();
+                editor.document.getBody().getParent().append(mask);
+                
+                // 如果开始标识在结束标识之后，则删除开始标识
+                var startMask = $body.parent().find('>.breakLineEleNewStart');
+                if (startMask.length > 0) {
+                    // 开始标识的 height 就是位置
+                    var startHeight = parseFloat(startMask.css('height'));
+                    // 结束标识的 top 就是位置
+                    var endTop = parseFloat($(mask.$).css('top')) || endHeight;
+                    if (startHeight >= endTop) {
+                        startMask.remove();
+                    }
+                }
+            }
         }
 
         editor.addCommand('settingUpNew', {
             exec: function (editor) {
                 settingUpLabel('settingUpNew');
+            }
+        });
+        editor.addCommand('settingUpEndNew', {
+            exec: function (editor) {
+                settingUpLabel('settingUpEndNew');
             }
         });
         editor.addCommand('settingUpStart', {
@@ -712,6 +777,7 @@ CKEDITOR.plugins.add('document', {
                     if (editor.document.getBody().find('.' + CKEDITOR.plugins.pagebreakCmd.LOGIC_PAGE_CLASS).count()) {
                         return {
                             '续打标识(新)': CKEDITOR.TRISTATE_OFF,
+                            '结束标识(新)': CKEDITOR.TRISTATE_OFF,
                             '取消标识': CKEDITOR.TRISTATE_OFF,
                         };
                     } else {
@@ -728,6 +794,12 @@ CKEDITOR.plugins.add('document', {
             editor.addMenuItem('续打标识(新)', {
                 label: '续打标识(新)',
                 command: 'settingUpNew',
+                group: 'hm',
+                order: 1
+            });
+            editor.addMenuItem('结束标识(新)', {
+                label: '结束标识(新)',
+                command: 'settingUpEndNew',
                 group: 'hm',
                 order: 1
             });
@@ -770,6 +842,7 @@ CKEDITOR.plugins.add('document', {
             if (onlyreadFlag) {
                     contextItems['settingUp'] = CKEDITOR.TRISTATE_OFF;
                     editor.commands['settingUpNew'].enable();
+                    editor.commands['settingUpEndNew'].enable();
                     editor.commands['settingUpStart'].enable();
                     editor.commands['settingUpEnd'].enable();
                     editor.commands['cancelSettingUp'].enable();
@@ -1884,6 +1957,7 @@ CKEDITOR.plugins.add('document', {
                                 case 'sync':
                                 // 续打
                                 case 'settingUpNew':
+                                case 'settingUpEndNew':
                                 case 'settingUpStart':
                                 case 'settingUpEnd':
                                 // 插入删除列
@@ -1907,6 +1981,7 @@ CKEDITOR.plugins.add('document', {
                             switch (event.data.name) {
                                 // 续打
                                 case 'settingUpNew':
+                                case 'settingUpEndNew':
                                 case 'settingUpStart':
                                 case 'settingUpEnd':
                                     return;

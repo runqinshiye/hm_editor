@@ -248,15 +248,14 @@ commonHM.component['documentModel'].fn({
             content.find('.has-br').removeClass('has-br').append('<br>');
             content = content.html().replace(/^<notbody/, '<body').replace(/<\/notbody>$/, '</body>');
         }
-        if (designMode != 'true') {
-            var $div = $(content
-                .replace(/<(body)(.*?)>/, "<div$2>")
-                .replace('</body>', '</div>')
-                .replace(/↵/, '<br/>')
-                .replace(/(<span[^>]+_timeoption=[^>]*>)(<\/span>)/g, '$1\u200B$2'));
-            var $body = $(_t.editor.document.getBody().$);
-            $body.html($div.html());
-
+        var $div = $(content
+            .replace(/<(body)(.*?)>/, "<div$2>")
+            .replace('</body>', '</div>')
+            .replace(/↵/, '<br/>')
+            .replace(/(<span[^>]+_timeoption=[^>]*>)(<\/span>)/g, '$1\u200B$2'));
+        var $body = $(_t.editor.document.getBody().$);
+        $body.html($div.html());
+        if (!designMode) {
             // 初始化不可用数据源状态
             _t.initDisabledDatasourceState($body);
 
@@ -264,13 +263,16 @@ commonHM.component['documentModel'].fn({
                 _t.hideReviseModel($body);
             }
         } else {
-            var $div = $(content.replace(/<(body)(.*?)>/, "<div$2>").replace('</body>', '</div>').replace(/↵/, '<br/>').replace(/(<span[^>]+_timeoption=[^>]*>)(<\/span>)/g, '$1\u200B$2'));
-            var $body = $(_t.editor.document.getBody().$);
-            $body.html($div.html());
-            if ($body.find('.switchModel').length == 1) {
+            if ($body.find('[_contenteditable="false"]').length == 1) {
                 CKEDITOR.plugins.switchmodelCmd.currentModel = '表单模式';
             } else {
                 CKEDITOR.plugins.switchmodelCmd.currentModel = '编辑模式';
+            }
+            // 获取组件实例并设置值
+            var switchModelCombo = _t.editor.ui.get('SwitchModel');
+            if (switchModelCombo) {
+                // 设置组件显示值
+                switchModelCombo.setValue(CKEDITOR.plugins.switchmodelCmd.currentModel);
             }
         }
 

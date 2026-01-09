@@ -465,7 +465,6 @@
             </div>
 
             <!-- 修订模式弹框 -->
-            <!-- 只读模式设置对话框 -->
             <div class="dialogBox reviseDialog">
                 <h3>演示用 - 修订模式设置</h3>
                 <div style="margin: 25px 0;">
@@ -479,6 +478,14 @@
                         </div>
                         <span class="switch-label-text">关闭</span>
                     </label>
+                </div>
+                <!-- 修订记录处理选项（当关闭修订模式且有修订记录时显示） -->
+                <div id="reviseOptions" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px; display: none;">
+                    <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">检测到文档中存在修订记录，请选择处理方式：</p>
+                    <select id="reviseAction" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        <option value="retain">保留修订内容</option>
+                        <option value="reject">忽略修订内容</option>
+                    </select>
                 </div>
                 <div>
                     <button id="btnConfirmRevise" class="dialog-btn btn-primary">确定</button>

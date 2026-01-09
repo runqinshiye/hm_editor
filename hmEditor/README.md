@@ -1948,6 +1948,225 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 8. **数据同步**：确保数据设置与业务逻辑保持同步
 
 
+## 数据元插入功能
+
+数据元插入功能允许开发者通过API方式在编辑器当前光标位置插入数据元元素，支持多种数据元类型，适用于动态构建文档。
+
+### 基本用法
+
+```javascript
+// 插入纯文本数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '患者姓名',           // 数据元名称
+            code: 'DE02.01.039.00',    // 数据元编码
+            nodeName: '纯文本',         // 节点类型
+            autoLable: true            // 是否自动添加数据元标题
+        };
+        
+        editorInstance.insertDataSource(datasource);
+        console.log('数据元插入成功');
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+
+// 插入时间数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '记录时间',
+            code: 'DE09.00.053.00',
+            nodeName: '时间',
+            autoLable: true
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+
+// 插入下拉（单选）数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '民族',
+            code: 'DE02.01.015.00',
+            nodeName: '下拉',
+            autoLable: true,
+            dictList: [
+                { code: '01', val: '汉族' },
+                { code: '02', val: '蒙古族' },
+                { code: '03', val: '回族' }
+            ]
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+
+// 插入下拉多选数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '过敏药物',
+            code: 'DE04.01.100.00',
+            nodeName: '下拉多选',
+            autoLable: true,
+            dictList: [
+                { code: '1', val: '青霉素' },
+                { code: '2', val: '头孢类' },
+                { code: '3', val: '磺胺类' }
+            ]
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+
+// 插入单选（radiobox）数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '性别',
+            code: 'DE02.01.040.00',
+            nodeName: '单选',
+            autoLable: true,
+            dictList: [
+                { code: '1', val: '男' },
+                { code: '2', val: '女' }
+            ]
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+
+// 插入多选（checkbox）数据元
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '症状',
+            code: 'DE04.01.117.00',
+            nodeName: '多选',
+            autoLable: true,
+            dictList: [
+                { code: '1', val: '发热' },
+                { code: '2', val: '咳嗽' },
+                { code: '3', val: '头痛' },
+                { code: '4', val: '乏力' }
+            ]
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+
+// 使用 items 字符串格式插入单选/多选
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var datasource = {
+            name: '血型',
+            code: 'DE04.50.001.00',
+            nodeName: '单选',
+            items: 'A型#B型#O型#AB型',  // 选项用#分隔
+            autoLable: true
+        };
+        
+        editorInstance.insertDataSource(datasource);
+    });
+```
+
+### 方法参数说明
+
+#### insertDataSource - 插入数据元
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| datasource | Object | 是 | 数据元配置对象 |
+
+**返回值：** 无
+
+**datasource 对象属性说明：**
+
+| 属性名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| name | String | 是 | 数据元名称，将作为 `data-hm-name` 属性存储 |
+| code | String | 是 | 数据元编码，将作为 `data-hm-code` 属性存储 |
+| nodeName | String | 否 | 节点类型名称，可选值见下表 |
+| autoLable | Boolean | 否 | 是否自动添加数据元标题，默认 false |
+| dictList | Array | 否 | 选项列表，用于下拉、单选、多选类型 |
+| dictList[].code | String | 否 | 选项编码 |
+| dictList[].val | String | 否 | 选项显示值 |
+| items | String | 否 | 选项字符串，多个选项用 `#` 分隔，用于单选、多选类型 |
+| selectMode | String | 否 | 选择模式，用于自动推断类型，可选值：单选/radio、多选/checkbox、下拉多选/dropdownMultiple |
+
+**使用说明：**
+- 数据元将插入到编辑器当前光标位置
+- `nodeName` 和 `nodeType` 二选一，`nodeType` 优先级更高
+- 选项数据支持两种格式：`dictList` 数组或 `items` 字符串
+
+### 节点类型说明
+
+#### 通过 nodeName 指定（推荐）
+
+| nodeName 值 | 对应 nodeType | 描述 | 显示形式 |
+| --- | --- | --- | --- |
+| 时间 | timebox | 时间选择器，默认日期格式 | 日期选择框 |
+| 纯文本 | newtextbox | 普通文本输入框 | 文本框 |
+| 数字文本 | newtextbox | 数字输入框，带数字格式验证 | 数字文本框 |
+| 下拉 | newtextbox | 下拉单选，点击弹出下拉框 | 下拉选择框 |
+| 下拉多选 | newtextbox | 下拉多选，点击弹出下拉框可多选 | 下拉多选框 |
+| 单选 | radiobox | 单选框，显示圆形图标 | ○ 选项1 ○ 选项2 |
+| 多选 | checkbox | 多选框，显示方形勾选框 | □ 选项1 □ 选项2 |
+| 搜索 | searchbox | 搜索框，支持模糊搜索 | 搜索输入框 |
+| 单元 | cellbox | 单元格框 | 单元格 |
+
+#### 选择类型对比
+
+| 类型 | nodeName | 显示形式 | 选择方式 | 适用场景 |
+| --- | --- | --- | --- | --- |
+| 单选框 | 单选 | 圆形图标排列 | 点击图标选择 | 选项少，需直观展示 |
+| 多选框 | 多选 | 方形图标排列 | 点击图标选择 | 选项少，需直观展示 |
+| 下拉单选 | 下拉 | 文本框+下拉箭头 | 点击弹出下拉框单选 | 选项多，节省空间 |
+| 下拉多选 | 下拉多选 | 文本框+下拉箭头 | 点击弹出下拉框多选 | 选项多，节省空间 |
+
+### 使用场景
+
+#### 动态文档构建
+1. **模板生成**：根据业务需求动态生成文档模板
+2. **批量插入**：批量向文档中插入多个数据元
+3. **条件插入**：根据条件动态插入不同类型的数据元
+
+#### 交互式编辑
+1. **用户选择**：用户从数据元列表中选择后插入
+2. **拖放插入**：配合拖放功能实现数据元插入
+3. **快捷操作**：通过快捷键或工具栏按钮快速插入
+
+### 常见问题
+
+#### 数据元插入失败
+
+1. **光标位置**：确保编辑器已聚焦且光标位于有效位置
+2. **参数格式**：检查 datasource 对象的属性是否正确
+3. **编辑器状态**：确保编辑器不处于只读模式
+
+#### 选项不显示
+
+1. **dictList 格式**：确保 dictList 数组中每项包含 code 和 val 属性
+2. **items 格式**：确保 items 字符串中选项用 `#` 正确分隔
+3. **nodeName 设置**：确保 nodeName 设置正确（下拉/下拉多选/单选/多选）
+
+#### 单选多选显示异常
+
+1. **选项为空**：检查 dictList 或 items 是否有数据
+2. **类型混淆**：注意区分"下拉"（弹出框）和"单选"（图标），"下拉多选"（弹出框）和"多选"（图标）
+
+### 最佳实践
+
+1. **参数验证**：插入前验证 datasource 参数的完整性
+2. **类型选择**：选项少于5个时优先使用单选/多选（图标形式），选项多时使用下拉/下拉多选
+3. **标题控制**：合理使用 autoLable 控制标题显示
+4. **错误处理**：对插入操作进行适当的错误处理
+5. **用户反馈**：为用户提供插入成功或失败的反馈信息
+6. **选项格式**：优先使用 dictList 格式，便于存储选项编码
+
+
 ## 脚本设置功能
 
 脚本设置功能允许开发者在文档模板中配置事件处理函数，用于监听文档加载、元素变化、元素点击等事件，实现自定义的业务逻辑处理。

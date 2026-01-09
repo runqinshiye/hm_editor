@@ -223,10 +223,8 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
         // 切换为打印的 css
         switchCssPrint: function switchCssPrint(editor, initSignature) {
             var body = editor.document.$.body;
-            // 切换样式1
-            thisCmd.switchCssPreview($(body), initSignature);
-
-            // 添加页面高度
+            
+            // 先设置页面固定高度，确保切换前后高度一致，避免底部空白
             for (var i = 0; i < body.children.length; i++) {
                 var child = body.children[i];
                 if (hasClass(child, thisCmd.LOGIC_PAGE_CLASS)) {
@@ -234,6 +232,9 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
                     child.style.minHeight = '';
                 }
             }
+            
+            // 切换样式（在高度固定后执行，这样隐藏元素不会导致布局变化）
+            thisCmd.switchCssPreview($(body), initSignature);
         },
         // 切换为分页的 css
         switchCssPaging: function switchCssPaging(body) {
@@ -260,15 +261,12 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
             var $body = $(body);
             $body.find('.print-preview').removeClass('print-preview');
 
-            // 取消高度, 并添加最小页面高度
+            // 设置页面固定高度，确保分页模式下高度一致
             for (var i = 0; i < body.children.length; i++) {
                 var child = body.children[i];
                 if (hasClass(child, thisCmd.LOGIC_PAGE_CLASS)) {
-                    child.style.height = '';
-                    // minHeight
-                    if (child.offsetHeight < thisCmd.getPageNetHeight()) {
-                        child.style.height = thisCmd.getPageNetHeight() + 'px';
-                    }
+                    child.style.height = thisCmd.getPageNetHeight() + 'px';
+                    child.style.minHeight = '';
                 }
             }
 

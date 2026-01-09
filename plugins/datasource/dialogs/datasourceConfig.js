@@ -245,6 +245,8 @@ function _handleEdit(editor, sourceData) {
         case 'radiobox':
         case 'checkbox':
             element.$.innerHTML = '';
+            // 获取分割符，默认为 &nbsp;
+            var separatorValue = sourceData['_separator_value'] || '&nbsp;';
 
             for (var i = 0; i < sourceData.items.length; i++) {
                 var itemNode = new CKEDITOR.dom.element('span');
@@ -264,7 +266,11 @@ function _handleEdit(editor, sourceData) {
                 descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
                 descNode.setText(sourceData.items[i]);
                 element.append(descNode);
-                element.appendText('\u00a0');
+                // 使用配置的分割符
+                var separatorNode = new CKEDITOR.dom.element('span');
+                separatorNode.setAttribute('class', 'hm-separator');
+                separatorNode.setHtml(separatorValue);
+                element.append(separatorNode);
             }
             break;
         case 'dropbox':
@@ -633,6 +639,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                 resultNode = node;
                 break;
             case 'radiobox':
+                // 获取分割符，默认为 &nbsp;
+                var radioSeparatorValue = sourceData['_separator_value'] || '&nbsp;';
                 for (var i = 0; i < sourceData.items.length; i++) {
                     var itemNode = new CKEDITOR.dom.element('span');
                     itemNode.setText('\u200B');
@@ -652,7 +660,11 @@ function _handleCreate(editor, sourceData, isEdit) {
                     descNode.setText(sourceData.items[i]);
                     node.append(descNode);
 
-                    node.appendText('\u00a0');
+                    // 使用配置的分割符
+                    var separatorNode = new CKEDITOR.dom.element('span');
+                    separatorNode.setAttribute('class', 'hm-separator');
+                    separatorNode.setHtml(radioSeparatorValue);
+                    node.append(separatorNode);
                 }
 
                 //node.setAttribute('data-hm-items', sourceData.datasourceItem);
@@ -661,6 +673,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                 resultNode = node;
                 break;
             case 'checkbox':
+                // 获取分割符，默认为 &nbsp;
+                var checkSeparatorValue = sourceData['_separator_value'] || '&nbsp;';
                 for (var i = 0; i < sourceData.items.length; i++) {
                     var itemNode = new CKEDITOR.dom.element('span');
                     itemNode.setText('\u200B');
@@ -679,7 +693,11 @@ function _handleCreate(editor, sourceData, isEdit) {
                     descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
                     descNode.setText(sourceData.items[i]);
                     node.append(descNode);
-                    node.appendText('\u00a0');
+                    // 使用配置的分割符
+                    var separatorNode = new CKEDITOR.dom.element('span');
+                    separatorNode.setAttribute('class', 'hm-separator');
+                    separatorNode.setHtml(checkSeparatorValue);
+                    node.append(separatorNode);
                 }
 
                 //node.setAttribute('data-hm-items', sourceData.datasourceItem);
