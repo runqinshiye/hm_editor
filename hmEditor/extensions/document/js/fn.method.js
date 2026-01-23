@@ -32,6 +32,8 @@ commonHM.component['documentModel'].fn({
         }
         // 根据初始化参数 设置文档只读
         _t.editor.HMConfig.readOnly && _t.setDocReadOnly('', _t.editor.HMConfig.readOnly);
+        // 加载完文档后重置撤销栈，防止撤销时回到空白状态
+        _t.editor.resetUndo();
     },
     /**
      * 在指定文档后插入新文档
@@ -152,4 +154,59 @@ commonHM.component['documentModel'].fn({
         var _t = this;
         _t.setReviseMode(reviseMode,retainModify);
     },
+    /**
+     * 设置表格行只读
+     * @param {String} tableCode 表格唯一编号
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否只读，true:只读 false:可编辑
+     */
+    setTableRowReadonly: function(tableCode, rowIndex, flag) {
+        var _t = this;
+        _t.tableRowReadonly(tableCode, rowIndex, flag);
+    },
+    /**
+     * 设置表格行删除权限
+     * @param {String} tableCode 表格唯一编号
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否可删除，true:可删除 false:不可删除
+     */
+    setTableRowDeletable: function(tableCode, rowIndex, flag) {
+        var _t = this;
+        _t.tableRowDeletable(tableCode, rowIndex, flag);
+    },
+    /**
+     * 设置表格行新增权限
+     * @param {String} tableCode 表格唯一编号
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否可新增，true:可新增 false:不可新增
+     */
+    setTableRowAddable: function(tableCode, rowIndex, flag) {
+        var _t = this;
+        _t.tableRowAddable(tableCode, rowIndex, flag);
+    },
+     /* 定位到病历或元素
+     * @param {String} docCode 病历ID（必填）
+     * @param {String} eleCode 元素ID（可选）
+     * @param {String} eleContent 元素内容（可选）
+     * @returns {Boolean} 是否成功定位
+     * 
+     * 使用说明：
+     * 1. 只有病历ID：滚动条定位到病历
+     * 2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头
+     * 3. 病历+元素+元素内容：光标定位到元素内容的开头
+     */
+    focusElement: function (docCode, eleCode, eleContent) {
+        var _t = this;
+        return _t.focusDocElement(docCode, eleCode, eleContent);
+    },
+    /**
+     * 插入HTML内容
+     * @param {String} htmlContent 要插入的HTML内容
+     * @param {String} posTag 定位标记（可选），如果提供，将通过 data-hm-code=posTag 或 data-hm-name=posTag 查找元素，在元素后插入HTML，完成后光标定位到插入HTML之前
+     * @returns {Boolean} 是否成功插入
+     */
+    insertHtml: function (htmlContent, posTag) {
+        var _t = this;
+        return _t.insertHtmlAtPosition(htmlContent, posTag);
+    }
 });

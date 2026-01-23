@@ -58,7 +58,7 @@ CKEDITOR.dialog.add('datasourceConfig', function (editor) {
                 editor.showNotification("数据元不能为空");
                 return false;
             }
-            if (d['data-hm-node'] != 'labelbox' && !d['data-hm-code']) {
+            if (d['data-hm-node'] != 'labelbox' && d['data-hm-node'] != 'positionnode' && !d['data-hm-code']) {
                 editor.showNotification("名称或者编码不正确");
                 return false;
             }
@@ -153,10 +153,15 @@ CKEDITOR.dialog.add('datasourceConfig', function (editor) {
         onLoad: function () {
 
         }
-    }
-})
+    };
+});
 
 function _handleEdit(editor, sourceData) {
+    // 保存当前滚动位置，防止修改元素内容后滚动到顶部
+    var editorWindow = editor.document.$.defaultView || editor.document.$.parentWindow;
+    var scrollTop = editorWindow ? editorWindow.scrollY || editorWindow.pageYOffset || 0 : 0;
+    var scrollLeft = editorWindow ? editorWindow.scrollX || editorWindow.pageXOffset || 0 : 0;
+
     var element = editor.contextTargetElement;
     if (!element.hasAttribute('data-hm-node') && !element.is('button')) {
         var $element = $(element.$).closest('[data-hm-node]');
@@ -197,9 +202,36 @@ function _handleEdit(editor, sourceData) {
                 element.append(newNode);
             } else {
                 // 其他类型正常替换
-                element.$.parentNode.replaceChild(newNode.$, element.$);
+                try {
+                    if (element.$ && element.$.parentNode) {
+                        element.$.parentNode.replaceChild(newNode.$, element.$);
+                    } else if (element.getParent()) {
+                        // 使用 CKEditor 的方法获取父节点
+                        newNode.insertBefore(element);
+                        element.remove();
+                    } else {
+                        // 如果都失败了，直接在光标位置插入
+                        editor.insertElement(newNode);
+                        if (element.$) {
+                            element.remove();
+                        }
+                    }
+                } catch (e) {
+                    // 捕获异常，使用备用方案
+                    console.warn('节点替换失败，使用备用方案:', e);
+                    editor.insertElement(newNode);
+                    try {
+                        element.remove();
+                    } catch (ex) {}
+                }
                 element = newNode;
             }
+        }
+        // 恢复滚动位置
+        if (editorWindow) {
+            setTimeout(function() {
+                editorWindow.scrollTo(scrollLeft, scrollTop);
+            }, 0);
         }
         return;
     }
@@ -266,11 +298,8 @@ function _handleEdit(editor, sourceData) {
                 descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
                 descNode.setText(sourceData.items[i]);
                 element.append(descNode);
-                // 使用配置的分割符
-                var separatorNode = new CKEDITOR.dom.element('span');
-                separatorNode.setAttribute('class', 'hm-separator');
-                separatorNode.setHtml(separatorValue);
-                element.append(separatorNode);
+                // 使用配置的分割符，最后一个选项不添加分隔符
+                _appendSeparator(element, separatorValue, i, sourceData.items.length);
             }
             break;
         case 'dropbox':
@@ -448,6 +477,12 @@ function _handleEdit(editor, sourceData) {
         element.removeAttribute('data-hm-code');
     }
 
+    // 恢复滚动位置
+    if (editorWindow) {
+        setTimeout(function() {
+            editorWindow.scrollTo(scrollLeft, scrollTop);
+        }, 0);
+    }
 }
 
 function removeDefineAttr(element) {
@@ -466,31 +501,21 @@ function removeDefineAttr(element) {
 
 function _handleCreate(editor, sourceData, isEdit) {
     // sourceData.autoLable = true; 
-    var ranges = editor.getSelection().getRanges();
-    var legalRange = true;
-    
+
     // 如果不是编辑模式，才检查插入位置的合法性
     if (!isEdit) {
-        if (ranges.length == 1 && ranges[0].collapsed) {
-            var eles = ranges[0].startPath().elements;
-            for (var r = 0; r < eles.length; r++) {
-                if (eles[r].is(CKEDITOR.dtd.$inline)) {
-                    legalRange = false;
-                    break;
-                }
-            }
-        } else {
-            legalRange = false;
-        }
-        if (editor.elementPath() && editor.elementPath().contains('span') && editor.elementPath().contains('span').hasClass('new-textbox-content')) {
-            legalRange = true;
+        var ranges = editor.getSelection().getRanges();
+        if (!(ranges.length == 1 && ranges[0].collapsed)) {
+            editor.showNotification('无法插入数据元到[选中文本]');
+            return;
         }
         var td = editor.elementPath().contains('td');
-        if (td && td.hasAttribute('data-hm-node')) legalRange = false;
+        if (td && td.hasAttribute('data-hm-node')){ 
+            editor.showNotification('无法插入数据元到[非嵌套类型数据元内]');
+            return;
+        }
     }
-    if (!legalRange && !isEdit) {
-        editor.showNotification('无法插入数据元到[格式化文本]或[选中文本]或[非嵌套类型数据元内]');
-    } else {
+  
         var node = new CKEDITOR.dom.element('span');
         node.setText('\u200B');
         //node.setAttribute('data-hm-node', sourceData['data-hm-node']);
@@ -527,6 +552,25 @@ function _handleCreate(editor, sourceData, isEdit) {
         }
         var resultNode;
         switch (sourceData['data-hm-node']) {
+            case 'positionnode':
+                // 创建定位标识节点
+                var positionNode = new CKEDITOR.dom.element('span');
+                positionNode.setText('\u200B');
+                positionNode.setAttribute('contentEditable', 'false');
+                positionNode.setAttribute('data-hm-node', 'positionnode');
+                positionNode.setAttribute('data-hm-name', sourceData['data-hm-name']);
+                positionNode.setAttribute('data-hm-id', wrapperUtils.getGUID());
+                
+                if (!isEdit) {
+                    editor.editable().insertElement(positionNode);
+                    editor.editable().insertText('\u200B');
+                    editor.fire('unlockSnapshot');
+                    return; // 已经处理了插入，直接返回
+                } else {
+                    // 编辑模式下，设置 resultNode 并 break，让函数正常返回
+                    resultNode = positionNode; 
+                }
+                break;
             case 'labelbox':
                 node.setText(sourceData['data-hm-name']);
                 resultNode = node;
@@ -659,12 +703,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                     descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
                     descNode.setText(sourceData.items[i]);
                     node.append(descNode);
-
-                    // 使用配置的分割符
-                    var separatorNode = new CKEDITOR.dom.element('span');
-                    separatorNode.setAttribute('class', 'hm-separator');
-                    separatorNode.setHtml(radioSeparatorValue);
-                    node.append(separatorNode);
+                    // 使用配置的分割符，最后一个选项不添加分隔符
+                    _appendSeparator(node, radioSeparatorValue, i, sourceData.items.length);
                 }
 
                 //node.setAttribute('data-hm-items', sourceData.datasourceItem);
@@ -693,11 +733,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                     descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
                     descNode.setText(sourceData.items[i]);
                     node.append(descNode);
-                    // 使用配置的分割符
-                    var separatorNode = new CKEDITOR.dom.element('span');
-                    separatorNode.setAttribute('class', 'hm-separator');
-                    separatorNode.setHtml(checkSeparatorValue);
-                    node.append(separatorNode);
+                    // 使用配置的分割符，最后一个选项不添加分隔符
+                    _appendSeparator(node, checkSeparatorValue, i, sourceData.items.length);
                 }
 
                 //node.setAttribute('data-hm-items', sourceData.datasourceItem);
@@ -764,8 +801,24 @@ function _handleCreate(editor, sourceData, isEdit) {
         if (isEdit) {
             return resultNode;
         }
-    }
+    
 
+}
+
+/**
+ * 添加分隔符节点（最后一个选项不添加）
+ * @param {Element} parentNode 父节点
+ * @param {string} separatorValue 分隔符值
+ * @param {number} index 当前索引
+ * @param {number} total 总数量
+ */
+function _appendSeparator(parentNode, separatorValue, index, total) {
+    if (index < total - 1) {
+        var separatorNode = new CKEDITOR.dom.element('span');
+        separatorNode.setAttribute('class', 'hm-separator');
+        separatorNode.setHtml(separatorValue);
+        parentNode.append(separatorNode);
+    }
 }
 
 function _handleCascade(node, target) {

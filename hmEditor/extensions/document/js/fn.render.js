@@ -1486,10 +1486,20 @@ commonHM.component['documentModel'].fn({
             // 添加增加行图标
             var $addIcon = $('<span class="add-row-icon" title="增加行" contenteditable="false"><i class="fa fa-plus-square"></i></span>');
 
+            // 检查当前行是否允许新增，如果不允许则禁用新增按钮
+            if ($tr.attr('_row_addable') === 'false') {
+                $addIcon.addClass('disabled').attr('title', '该行不允许新增');
+            }
+
             // 添加删除行图标（只有当行数大于1时才显示）
             var $deleteIcon = $('<span class="delete-row-icon" title="删除行" contenteditable="false"><i class="fa fa-minus-square"></i></span>');
             if (totalRows == 1) {
                 $deleteIcon.addClass('disabled').attr('title', '至少保留一行');
+            }
+
+            // 检查当前行是否允许删除，如果不允许则禁用删除按钮（只读状态不影响删除权限）
+            if ($tr.attr('_row_deletable') === 'false') {
+                $deleteIcon.addClass('disabled').attr('title', '该行不允许删除');
             }
 
             $actionsContainerAdd.append($addIcon);
@@ -1546,10 +1556,20 @@ commonHM.component['documentModel'].fn({
             // 添加增加行图标
             var $addIcon = $('<span class="add-row-icon" title="增加列" contenteditable="false"><i class="fa fa-plus-square"></i></span>');
 
+            // 检查当前位置是否允许新增
+            if ($tr.attr('_cell_addable') === 'false') {
+                $addIcon.addClass('disabled').attr('title', '该位置不允许新增列');
+            }
+
             // 添加删除行图标（只有当行数大于1时才显示）
             var $deleteIcon = $('<span class="delete-row-icon" title="删除列" contenteditable="false"><i class="fa fa-minus-square"></i></span>');
             if (totalColumns == 1) {
                 $deleteIcon.addClass('disabled').attr('title', '至少保留一列');
+            }
+
+            // 检查当前位置是否允许删除（只读状态不影响删除权限）
+            if ($tr.attr('_cell_deletable') === 'false') {
+                $deleteIcon.addClass('disabled').attr('title', '该位置不允许删除列');
             }
 
             $actionsContainerAdd.append($addIcon);
@@ -1842,20 +1862,6 @@ commonHM.component['documentModel'].fn({
         }
         return recordList;
     },
-    /**
-     * 在光标处插入内容
-     * @param {String} content 要插入的内容
-     */
-    insertContentAtCursor: function (content) {
-        var _t = this;
-        var selection = _t.editor.getSelection().getRanges()[0];
-        if (!selection) {
-            console.warn('未找到光标位置');
-            return;
-        }
-        _t.editor.insertHtml(content);
-        _t.editor.editable().fire('togglePlaceHolder', {});
-    },
 
     /**
      * 增加表格行
@@ -1869,14 +1875,28 @@ commonHM.component['documentModel'].fn({
                 return;
             }
 
+            // 检查当前行是否允许新增
+            if ($currentRow.attr('_row_addable') === 'false') {
+                console.warn('该行不允许新增行');
+                return;
+            }
+
             var $newRow = $currentRow.clone();
             $newRow.find('.table-row-actions').remove();
+
+            // 清除新行的只读和权限相关属性，确保新行可编辑
+            $newRow.removeAttr('_row_readonly');
+            $newRow.removeAttr('_row_deletable');
+            $newRow.removeAttr('_row_addable');
 
             // 清空新行中的内容
             $newRow.find('td').each(function () {
                 var $td = $(this);
 
-                // 清空文本框内容
+                // 移除单元格的contenteditable属性，让其继承父级状态
+                $td.removeAttr('contenteditable');
+
+                // 清空文本框内容并确保可编辑
                 var $textbox = $td.find('.new-textbox-content');
                 if ($textbox.length > 0) {
                     if ($textbox.attr('_placeholder') && $textbox.attr('_placeholder') != '') {
@@ -1886,7 +1906,21 @@ commonHM.component['documentModel'].fn({
                         $textbox.text('');
                         $textbox.removeAttr('_placeholdertext');
                     }
+                    // 移除文本框的contenteditable属性，让其继承父级状态
+                    $textbox.removeAttr('contenteditable');
                 }
+
+                // 确保数据元可交互
+                $td.find('span[data-hm-node="timebox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('span[data-hm-node="dropbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('span[data-hm-node="checkbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('span[data-hm-node="radiobox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('span[data-hm-node="searchbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('span[data-hm-node="newtextbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $td.find('button[data-hm-id]').css('pointer-events', 'auto');
+
+                // 移除简洁模式样式
+                $td.find('.concise-model').removeClass('concise-model');
 
                 // 清空单选框选中状态
                 $td.find('[data-hm-node=radiobox]').prop('checked', false);
@@ -1927,6 +1961,12 @@ commonHM.component['documentModel'].fn({
                 return;
             }
 
+            // 检查当前行是否允许删除（只读状态不影响删除权限）
+            if ($currentRow.attr('_row_deletable') === 'false') {
+                console.warn('该行不允许删除');
+                return;
+            }
+
             var $tbody = $currentRow.closest('tbody');
             if (!$tbody.length) {
                 console.warn('无法找到表格体元素');
@@ -1960,6 +2000,12 @@ commonHM.component['documentModel'].fn({
                 return;
             }
 
+            // 检查当前单元格是否允许新增
+            if ($currentCell.attr('_cell_addable') === 'false') {
+                console.warn('该位置不允许新增列');
+                return;
+            }
+
             var $table = $currentCell.closest('table');
             if (!$table.length) {
                 console.warn('无法找到表格元素');
@@ -1986,6 +2032,13 @@ commonHM.component['documentModel'].fn({
                 // 创建新的td元素，复制目标td的结构
                 var $newTd = $tr.find('td:eq(' + currentCellIndex + ')').clone();
 
+                // 清除新单元格的只读和权限相关属性
+                $newTd.removeAttr('_cell_readonly');
+                $newTd.removeAttr('_cell_deletable');
+                $newTd.removeAttr('_cell_addable');
+                // 移除contenteditable属性，让其继承父级状态
+                $newTd.removeAttr('contenteditable');
+
                 // 清空新td中的内容，参考_addTableRow的清空逻辑
                 $newTd.find('.new-textbox-content').each(function () {
                     var $textbox = $(this);
@@ -1996,7 +2049,21 @@ commonHM.component['documentModel'].fn({
                         $textbox.text('');
                         $textbox.removeAttr('_placeholdertext');
                     }
+                    // 移除contenteditable属性，让其继承父级状态
+                    $textbox.removeAttr('contenteditable');
                 });
+
+                // 确保数据元可交互
+                $newTd.find('span[data-hm-node="timebox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('span[data-hm-node="dropbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('span[data-hm-node="checkbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('span[data-hm-node="radiobox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('span[data-hm-node="searchbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('span[data-hm-node="newtextbox"]:not([_isdisabled="true"])').css('pointer-events', 'auto');
+                $newTd.find('button[data-hm-id]').css('pointer-events', 'auto');
+
+                // 移除简洁模式样式
+                $newTd.find('.concise-model').removeClass('concise-model');
 
                 // 清空单选框选中状态
                 $newTd.find('[data-hm-node=radiobox]').prop('checked', false);
@@ -2045,6 +2112,12 @@ commonHM.component['documentModel'].fn({
         try {
             if (!$currentCell || !$currentCell.length) {
                 console.warn('无效的表格单元格元素');
+                return;
+            }
+
+            // 检查当前单元格是否允许删除（只读状态不影响删除权限）
+            if ($currentCell.attr('_cell_deletable') === 'false') {
+                console.warn('该位置不允许删除列');
                 return;
             }
 

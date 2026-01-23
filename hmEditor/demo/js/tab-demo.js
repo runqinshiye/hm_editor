@@ -614,7 +614,7 @@ $(document).ready(function () {
     } else {
         window.aiServer = 'https://editor.huimei.com';
     }
-
+window.aiServer = 'https://editor.huimei.com';
     console.log('AI Server:', window.aiServer);
 
     // 绑定按钮事件
@@ -642,6 +642,21 @@ $(document).ready(function () {
 
         // 显示插入数据元信息输入对话框
         $('.insertMetaDataInfo').show();
+    });
+
+    // 定位元素按钮事件
+    $('#btnFocusElement').on('click', function () {
+        if (!window.tabManager.currentTabId) {
+            showEditorNotOpenDialog('定位元素');
+            return;
+        }
+
+        // 显示定位元素对话框
+        $('.focusElementDialog').show();
+        // 清空输入框
+        $('#focusDocCode').val('');
+        $('#focusEleCode').val('');
+        $('#focusEleContent').val('');
     });
 
     // 确认文档信息
@@ -731,6 +746,46 @@ $(document).ready(function () {
     $('#btnCancelMetaData').on('click', function () {
         $('.insertMetaDataInfo').hide();
         $('.insertMetaDataInfo textarea').val('');
+    });
+
+    // 确认定位元素
+    $('#btnConfirmFocusElement').on('click', async function () {
+        const docCode = $('#focusDocCode').val().trim();
+        const eleCode = $('#focusEleCode').val().trim();
+        const eleContent = $('#focusEleContent').val().trim();
+
+        if (!docCode) {
+            showAlertDialog('病历ID不能为空');
+            return;
+        }
+
+        try {
+            const editor = await window.tabManager.getCurrentEditor();
+            if (!editor || !editor.focusElement) {
+                showAlertDialog('编辑器不支持定位元素功能');
+                return;
+            }
+            // 隐藏对话框并清空输入
+            $('.focusElementDialog').hide();
+            $('#focusDocCode').val('');
+            $('#focusEleCode').val('');
+            $('#focusEleContent').val('');
+            // 调用 focusElement 方法
+            const result = editor.focusElement(docCode, eleCode || undefined, eleContent || undefined);
+            
+
+        } catch (e) {
+            console.error('定位元素失败:', e);
+            showAlertDialog('定位元素失败: ' + e.message);
+        }
+    });
+
+    // 取消定位元素
+    $('#btnCancelFocusElement').on('click', function () {
+        $('.focusElementDialog').hide();
+        $('#focusDocCode').val('');
+        $('#focusEleCode').val('');
+        $('#focusEleContent').val('');
     });
 
     // 快速输入链接点击事件
@@ -970,6 +1025,209 @@ $(document).ready(function () {
         }
     });
 
+    // ==================== 设置表格权限相关代码 ====================
+    // 设置表格权限按钮点击事件
+    $('#btnSetTablePerssion').on('click', async function () {
+        if (!window.tabManager.currentTabId) {
+            showEditorNotOpenDialog('设置表格权限');
+            return;
+        }
+
+        // 初始化开关状态为开启
+        $('#tablePermissionFlag').prop('checked', true);
+        const slider = $('#tablePermissionFlag').siblings('.slider');
+        const sliderCircle = slider.find('.slider-circle');
+        const labelText = $('#tablePermissionFlag').closest('label').find('.switch-label-text');
+        slider.css('background-color', '#4CAF50');
+        sliderCircle.css('transform', 'translateX(26px)');
+        labelText.text('开启');
+
+        // 默认选中第一个radio
+        $('input[name="tablePermissionType"][value="readonly"]').prop('checked', true);
+        updateTablePermissionHelpText('readonly');
+
+        // 清空输入框
+        $('#tablePermissionCode').val('');
+        $('#tablePermissionRowIndex').val('');
+
+        $('.tablePermissionDialog').show();
+    });
+
+    // 表格权限类型radio切换时更新帮助文本
+    $('input[name="tablePermissionType"]').on('change', function () {
+        updateTablePermissionHelpText($(this).val());
+    });
+
+    // 更新表格权限帮助文本
+    function updateTablePermissionHelpText(type) {
+        const helpTexts = {
+            'readonly': '设置指定行为只读状态（开启=只读，关闭=可编辑）',
+            'deletable': '设置指定行是否可删除（开启=可删除，关闭=不可删除）',
+            'addable': '设置指定行是否可新增（开启=可新增，关闭=不可新增）'
+        };
+        $('#tablePermissionHelpText').text(helpTexts[type] || '设置指定表格行的权限');
+    }
+
+    // 表格权限开关变化处理
+    $('#tablePermissionFlag').on('change', function () {
+        const isChecked = $(this).is(':checked');
+        const slider = $(this).siblings('.slider');
+        const sliderCircle = slider.find('.slider-circle');
+        const labelText = $(this).closest('label').find('.switch-label-text');
+
+        if (isChecked) {
+            slider.css('background-color', '#4CAF50');
+            sliderCircle.css('transform', 'translateX(26px)');
+            labelText.text('开启');
+        } else {
+            slider.css('background-color', '#ccc');
+            sliderCircle.css('transform', 'translateX(0)');
+            labelText.text('关闭');
+        }
+    });
+
+    // 确认设置表格权限
+    $('#btnConfirmTablePermission').on('click', async function () {
+        try {
+            const tableCode = $('#tablePermissionCode').val().trim();
+            const rowIndexText = $('#tablePermissionRowIndex').val().trim();
+            const permissionType = $('input[name="tablePermissionType"]:checked').val();
+            const flag = $('#tablePermissionFlag').is(':checked');
+
+            // 参数校验
+            if (!tableCode) {
+                showAlertDialog('请输入表格编码');
+                return;
+            }
+
+            if (!rowIndexText) {
+                showAlertDialog('请输入行号');
+                return;
+            }
+
+            const editor = await window.tabManager.getCurrentEditor();
+
+            // 获取表格真实行数（通过DOM获取，不依赖数据元）
+            const $body = $(editor.editor.document.getBody().$);
+            let $table = $body.find('table[data-hm-table-code="' + tableCode + '"][data-hm-table-type="list"]');
+            if ($table.length === 0) {
+                $table = $body.find('table[data-hm-datatable="' + tableCode + '"][data-hm-table-type="list"]');
+            }
+            if ($table.length === 0) {
+                showAlertDialog('未找到表格编码为 ' + tableCode + ' 的列表类表格');
+                return;
+            }
+
+            const $tbody = $table.find('tbody');
+            if ($tbody.length === 0) {
+                showAlertDialog('表格中未找到tbody');
+                return;
+            }
+
+            const evaluateType = $table.attr('evaluate-type') || 'col';
+            let totalRows = 0;
+
+            if (evaluateType === 'row') {
+                // 横向表格：获取第一行中非表头的数据单元格数量
+                const $firstRow = $tbody.find('tr').first();
+                totalRows = $firstRow.find('td:not(.hm-table-horizontal-header)').length;
+            } else {
+                // 竖向表格（col模式）：直接获取tr数量
+                totalRows = $tbody.find('tr').length;
+            }
+
+            if (totalRows === 0) {
+                showAlertDialog('表格中没有数据行');
+                return;
+            }
+
+            // 解析行号（支持区间格式，如"1-5,8,10-12"）
+            let rowIndexArray = [];
+            const parts = rowIndexText.split(',');
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i].trim();
+                if (part === '') continue;
+
+                // 检查是否是区间格式（如 "1-5"）
+                if (part.indexOf('-') > 0) {
+                    const range = part.split('-');
+                    if (range.length === 2) {
+                        const start = parseInt(range[0].trim(), 10);
+                        const end = parseInt(range[1].trim(), 10);
+                        if (!isNaN(start) && !isNaN(end) && start <= end) {
+                            for (let j = start; j <= end; j++) {
+                                if (rowIndexArray.indexOf(j) === -1) {
+                                    rowIndexArray.push(j);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // 单个数字
+                    const num = parseInt(part, 10);
+                    if (!isNaN(num) && rowIndexArray.indexOf(num) === -1) {
+                        rowIndexArray.push(num);
+                    }
+                }
+            }
+
+            if (rowIndexArray.length === 0) {
+                showAlertDialog('行号格式错误，请输入有效的行号');
+                return;
+            }
+
+            // 校验行号是否有效：检查是否至少有一个行号在有效范围内
+            const validRows = rowIndexArray.filter(idx => idx >= 0 && idx < totalRows);
+            const invalidRows = rowIndexArray.filter(idx => idx < 0 || idx >= totalRows);
+
+            if (validRows.length === 0) {
+                showAlertDialog('设置失败！\n输入的行号都不存在\n有效范围：0-' + (totalRows - 1) + '\n输入的行号：' + rowIndexArray.join(','));
+                return;
+            }
+
+            // 根据权限类型调用对应的方法（使用原始输入，让API自行处理）
+            let permissionName;
+            switch (permissionType) {
+                case 'readonly':
+                    permissionName = '只读';
+                    editor.setTableRowReadonly(tableCode, rowIndexText, flag);
+                    break;
+                case 'deletable':
+                    permissionName = '删除';
+                    editor.setTableRowDeletable(tableCode, rowIndexText, flag);
+                    break;
+                case 'addable':
+                    permissionName = '新增';
+                    editor.setTableRowAddable(tableCode, rowIndexText, flag);
+                    break;
+                default:
+                    showAlertDialog('未知的权限类型');
+                    return;
+            }
+
+            // 构建提示消息
+            let message = '设置' + permissionName + '权限成功！\n表格编码：' + tableCode + '\n成功行号：' + validRows.join(',');
+            if (invalidRows.length > 0) {
+                message += '\n无效行号（已忽略）：' + invalidRows.join(',');
+            }
+            showAlertDialog(message);
+
+            // 隐藏对话框
+            $('.tablePermissionDialog').hide();
+
+        } catch (e) {
+            console.error('设置表格权限失败:', e);
+            showAlertDialog('设置表格权限失败: ' + e.message);
+        }
+    });
+
+    // 取消设置表格权限
+    $('#btnCancelTablePermission').on('click', function () {
+        $('.tablePermissionDialog').hide();
+        $('#tablePermissionCode').val('');
+        $('#tablePermissionRowIndex').val('');
+    });
+
     //只读模式
     $('#btnReadOnly').on('click', async function () {
         if (!window.tabManager.currentTabId) {
@@ -1021,6 +1279,28 @@ $(document).ready(function () {
             $('.readOnlyDialog').show();
         }
     });
+
+    // 处理只读模式开关变化的函数
+    function handleReadOnlyFlagChange() {
+        const slider = $(this).siblings('.slider');
+        const sliderCircle = slider.find('.slider-circle');
+        const labelText = $(this).closest('label').find('.switch-label-text');
+        if (this.checked) {
+            // 开关打开时，启用只读模式
+            slider.css('background-color', '#4CAF50');
+            sliderCircle.css('transform', 'translateX(26px)');
+            labelText.text('启用');
+        } else {
+            // 开关关闭时，关闭只读模式
+            slider.css('background-color', '#ccc');
+            sliderCircle.css('transform', 'translateX(0)');
+            labelText.text('关闭');
+        }
+    }
+
+    // 绑定只读模式开关的change事件
+    $('#readOnlyFlag').on('change', handleReadOnlyFlagChange);
+
     // 处理修订模式开关变化的函数
     async function handleReviseFlagChange() {
         const slider = $(this).siblings('.slider');
@@ -1267,6 +1547,48 @@ $(document).ready(function () {
     $('#btnCancelInsertData').click(function () {
         $('.insertDataAtCursorDialog').hide();
         $('.insertDataAtCursorDialog textarea').val('');
+    });
+
+    // ==================== 插入HTML相关代码 ====================
+    // 插入HTML按钮点击事件
+    $('#btnInsertHtml').click(function () {
+        if (!window.tabManager.currentTabId) {
+            showEditorNotOpenDialog('插入HTML');
+            return;
+        }
+        $('.insertHtmlDialog').show();
+    });
+
+    // 确认插入HTML
+    $('#btnConfirmInsertHtml').on('click', async function () {
+        const htmlContent = $('#insertHtmlContent').val();
+        const posTag = $('#insertHtmlPosTag').val();
+        
+        if (!htmlContent) {
+            showAlertDialog('请输入要插入的HTML内容');
+            return;
+        }
+
+        try {
+            const editor = await window.tabManager.getCurrentEditor();
+            const result = editor.insertHtml(htmlContent, posTag || undefined);
+            if (result === false) {
+                showAlertDialog('插入HTML失败，请检查定位标记是否正确');
+            } else {
+                $('.insertHtmlDialog').hide();
+                $('#insertHtmlContent').val('');
+                $('#insertHtmlPosTag').val('');
+            }
+        } catch (e) {
+            showAlertDialog('插入HTML失败: ' + e.message);
+        }
+    });
+
+    // 取消插入HTML
+    $('#btnCancelInsertHtml').click(function () {
+        $('.insertHtmlDialog').hide();
+        $('#insertHtmlContent').val('');
+        $('#insertHtmlPosTag').val('');
     });
 
     async function getHtml() {

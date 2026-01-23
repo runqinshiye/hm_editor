@@ -7,6 +7,9 @@ commonHM.component['documentModel'].fn({
         copyWidget.find('.r-model-gen-remark').each(function () {
             $(this).remove();
         });
+        copyWidget.find('style').each(function () {
+            $(this).remove();
+        });
         return copyWidget.text();
     },
     /**
@@ -199,7 +202,6 @@ commonHM.component['documentModel'].fn({
         // 根据表格方向选择不同的数据处理方式
         if (tableDirection === 'row') {
             // 横向表格：除标题外，一列为一组数据
-            debugger
             var colCount = _t.getTableColumnCount($table);
             if (typeof rowIndex === 'number' && rowIndex >= 0) {
                 // 处理指定列

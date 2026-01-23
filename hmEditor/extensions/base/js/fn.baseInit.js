@@ -135,7 +135,7 @@ HMEditor.fn({
             reviseMode: _t.options.reviseMode || false,
             readOnly: _t.options.readOnly || false,
             sdkHost: _t.options.sdkHost || '',
-            realtimePageBreak: false, // 实时分页
+            realtimePageBreak: _t.options.realtimePageBreak || false, // 实时分页
             // 零宽字符, Zero Width No-Break Space:  ​ , \ufeff(U+FEFF). (http://dev.ckeditor.com/ticket/1359)
             zeroWidthChar: /[\u200B-\u200D\uFEFF]/g,
             zeroWidthCharStarted: /^[\u200B-\u200D\uFEFF]+/g,

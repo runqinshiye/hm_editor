@@ -1973,6 +1973,25 @@
 
         editor.addCommand('nodeProperties', new CKEDITOR.dialogCommand('datasourceConfig'));
 
+        // 添加 datasource 命令，在打开对话框前检查选中文本
+        editor.addCommand('datasource', {
+            exec: function(editor) {
+                // 检查是否有选中文本
+                var ranges = editor.getSelection().getRanges();
+                if (!(ranges.length == 1 && ranges[0].collapsed)) {
+                    editor.showNotification('无法插入数据元到[选中文本]');
+                    return;
+                }
+                var td = editor.elementPath().contains('td');
+                if (td && td.hasAttribute('data-hm-node')){ 
+                    editor.showNotification('无法插入数据元到[非嵌套类型数据元内]');
+                    return;
+                }
+                // 如果没有选中文本，打开对话框
+                editor.openDialog('datasourceConfig');
+            }
+        });
+
         // function insertSearchBox(searchOption) {
         //     editor.fire('paste', {
         //         dataValue: '\u200B<span contenteditable="false" data-hm-node="searchbox"' + ' _searchoption="' + searchOption + '" data-hm-id="' + wrapperUtils.getGUID() + '">\u200B</span>\u200B',
@@ -2286,6 +2305,7 @@
                         contextItems['nodeDelete'] = CKEDITOR.TRISTATE_OFF;
                         switch (type) {
                             case 'labelbox':
+                            case 'positionnode':
                             case 'newtextbox':
                             case 'dropbox':
                             case 'timebox':
@@ -2942,6 +2962,80 @@
         editor.on('contentDom', function () {
             var editable = editor.editable();
 
+            // 监听选择变化，当光标在数据元（行内元素span）内部时，禁用前后缩进功能
+            editor.on('selectionChange', function (evt) {
+                var path = evt.data.path;
+                var elements = path.elements;
+                var startElement = evt.data.selection.getStartElement();
+                var isInDatasourceElement = false;
+                var isInDataSource = false;
+                
+                // 检查路径中是否包含数据元
+                for (var i = 0; i < elements.length; i++) {
+                    var el = elements[i];
+                    if (el.hasAttribute && (
+                        el.hasAttribute('data-hm-node') ||
+                        el.hasClass('new-textbox') ||
+                        el.hasClass('new-textbox-content')
+                    )) {
+                        isInDatasourceElement = true;
+                        break;
+                    }
+                }
+                
+                // 检查当前选区起始元素是否在可编辑的数据元内（用于控制字体样式按钮）
+                if (startElement) {
+                    var current = startElement;
+                    while (current && current.type === CKEDITOR.NODE_ELEMENT) {
+                        var nodeType = current.getAttribute && current.getAttribute('data-hm-node');
+                        if ((nodeType && nodeType !== 'labelbox') || 
+                            current.hasClass('new-textbox') ||
+                            current.hasClass('new-textbox-content')) {
+                            isInDataSource = true;
+                            break;
+                        }
+                        current = current.getParent();
+                    }
+                }
+                
+                // 数据元（行内元素span）的缩进功能控制 - 在所有模式下都需要禁用
+                // 当光标在数据元（包括labelbox标题）内部时，禁用块级元素的前后缩进功能
+                var indentCommand = editor.getCommand('indent');
+                var outdentCommand = editor.getCommand('outdent');
+                if (isInDatasourceElement) {
+                    if (indentCommand) {
+                        indentCommand.setState(CKEDITOR.TRISTATE_DISABLED);
+                    }
+                    if (outdentCommand) {
+                        outdentCommand.setState(CKEDITOR.TRISTATE_DISABLED);
+                    }
+                }
+                
+                // 表单模式下控制样式按钮状态
+                // 检查startElement是否有class=emrWidget-content又有_contenteditable="false"属性的父级元素
+                if (!editor.HMConfig.designMode && startElement && startElement.$ && 
+                    $(startElement.$).parents('.emrWidget-content[_contenteditable="false"]').length > 0) {
+                    
+                    // 控制样式按钮的启用/禁用状态
+                    var styleCommands = ['bold', 'italic', 'underline', 'strike', 'subscript', 'superscript', 'removeFormat'];
+                    for (var j = 0; j < styleCommands.length; j++) {
+                        var command = editor.getCommand(styleCommands[j]);
+                        if (command) {
+                            command.setState(isInDataSource ? CKEDITOR.TRISTATE_OFF : CKEDITOR.TRISTATE_DISABLED);
+                        }
+                    }
+                    
+                    // 控制其他UI组件（字体、颜色等）
+                    var uiComponents = ['Font', 'FontSize', 'TextColor', 'BGColor'];
+                    for (var k = 0; k < uiComponents.length; k++) {
+                        var component = editor.ui.get(uiComponents[k]);
+                        if (component) {
+                            component.setState(isInDataSource ? CKEDITOR.TRISTATE_OFF : CKEDITOR.TRISTATE_DISABLED);
+                        }
+                    }
+                }
+            }, null, null, 100); // 优先级设置为100，确保在basicstyles的状态检测之后执行
+
             editable.on('cut', function (evt) {
                 var selection = editor.getSelection();
                 var ranges = selection.getRanges();
@@ -3596,6 +3690,11 @@
                 var selection = editor.getSelection();
                 var ranges = selection.getRanges();
                 var range0 = ranges[0] || new CKEDITOR.dom.range(editor.document);
+                // 检查当前元素是否在数据元内部（行内元素span）
+                var isInDatasourceElement = $(element.$).hasClass('new-textbox') || 
+                    $(element.$).hasClass('new-textbox-content') ||
+                    $(element.$).closest('[data-hm-node]').length > 0;
+                
                 if (editor.HMConfig.designMode) {
                     if($(element.$).hasClass('new-textbox')||$(element.$).hasClass('new-textbox-content')){
                         // 如果是数据元，禁用horizontalrule按钮
@@ -3606,44 +3705,22 @@
                     }
                 }
                 
-                // 表单模式下控制样式按钮状态
-                // 检查element是否有class=emrWidget-content又有_contenteditable="false"属性的父级元素
-                if ($(element.$).parents('.emrWidget-content[_contenteditable="false"]').length > 0) {
-                    var isInDataSource = false;
-                    var current = element;
-                    
-                    // 检查当前点击的元素是否在数据元内
-                    while (current && current.type === CKEDITOR.NODE_ELEMENT) {
-                        if ((current.hasAttribute('data-hm-node') && current.getAttribute('data-hm-node') !== 'labelbox') || 
-                            $(current.$).hasClass('new-textbox') ||
-                            $(current.$).hasClass('new-textbox-content')) {
-                            isInDataSource = true;
-                            break;
-                        }
-                        current = current.getParent();
+                // 数据元（包括labelbox标题）作为行内元素（span），禁用块级元素的前后缩进功能
+                // 在所有模式下都需要禁用，防止点击labelbox后执行缩进导致页面结构损坏
+                var indentCommand = editor.getCommand('indent');
+                var outdentCommand = editor.getCommand('outdent');
+                if (isInDatasourceElement) {
+                    if (indentCommand) {
+                        indentCommand.setState(CKEDITOR.TRISTATE_DISABLED);
                     }
-                    
-                    // 控制样式按钮的启用/禁用状态
-                    // 使用延迟执行确保在basicstyles的状态检测之后执行
-                    setTimeout(function() {
-                        var styleCommands = ['bold', 'italic', 'underline', 'strike', 'subscript', 'superscript', 'removeFormat'];
-                        for (var i = 0; i < styleCommands.length; i++) {
-                            var command = editor.getCommand(styleCommands[i]);
-                            if (command) {
-                                command.setState(isInDataSource ? CKEDITOR.TRISTATE_OFF : CKEDITOR.TRISTATE_DISABLED);
-                            }
-                        }
-                        
-                        // 控制其他UI组件（字体、颜色等）
-                        var uiComponents = ['Font', 'FontSize', 'TextColor', 'BGColor'];
-                        for (var j = 0; j < uiComponents.length; j++) {
-                            var component = editor.ui.get(uiComponents[j]);
-                            if (component) {
-                                component.setState(isInDataSource ? CKEDITOR.TRISTATE_OFF : CKEDITOR.TRISTATE_DISABLED);
-                            }
-                        }
-                    }, 10); // 延迟10ms确保在basicstyles状态检测之后执行
+                    if (outdentCommand) {
+                        outdentCommand.setState(CKEDITOR.TRISTATE_DISABLED);
+                    }
                 }
+                
+                // 注意：表单模式下控制样式按钮状态的逻辑已移至 selectionChange 事件中统一处理
+                // 这样可以避免 click 事件与 selectionChange 事件的时序竞争问题
+                // 同时也能正确处理通过键盘或拖拽选中文字的情况
                 
                 // 只读模式下新文本获焦可输入问题修复
                 if (editor.readOnly && $(element.$).parents().hasClass('new-textbox')) {
@@ -3689,7 +3766,24 @@
                         }
                         var radioContainer = element.getParent();
                         var _radioSelectType = radioContainer.getAttribute('_radio_select_type') || '1'; // 默认必选
-                        if ('0' == _radioSelectType && element.getAttribute('_selected')) {
+                        
+                        // 计算单选按钮选项数量
+                        var radioOptions = radioContainer.find('[data-hm-node="radiobox"]');
+                        var optionCount = 0;
+                        for (var j = 0; j < radioOptions.count(); j++) {
+                            var option = radioOptions.getItem(j);
+                            if (option.getAttribute('data-hm-node') == type
+                                && option.getAttribute('data-hm-name') == name) {
+                                optionCount++;
+                            }
+                        }
+                        
+                        // 如果只有一个选项，且当前选项已选中，则允许取消选中
+                        var isSingleOption = optionCount === 1;
+                        var isSelected = element.getAttribute('_selected') == 'true';
+                        var canDeselect = ('0' == _radioSelectType) || (isSingleOption && isSelected);
+                        
+                        if (canDeselect && isSelected) {
                             element.removeAttribute('_selected');
                             element.removeClass('fa-dot-circle-o');
                             element.addClass('fa-circle-o');
@@ -4784,7 +4878,7 @@ function doCheckText(ele,val,options){
             }
             if(max){
                 if(valNum > Number(max)){
-                    return "输入值不能大于【"+min+"】";
+                    return "输入值不能大于【"+max+"】";
                 }
             }
 

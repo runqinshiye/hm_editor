@@ -81,6 +81,7 @@
                                 <button id="btnSetData">设置数据</button>
                                 <button id="btnInsertDataAtCursor">光标插入内容</button>
                                 <button id="btnInsertImageAtCursor">光标插入图片</button>
+                                <button id="btnInsertHtml">插入HTML</button>
                                 <button id="btnMenu">自定义菜单</button>
                                 <button id="btnReadOnly">只读模式</button>
                                 <button id="btnRevise">修订模式</button>
@@ -92,7 +93,9 @@
                                 <button id="btnCustomProperties">自定义属性</button>
                                 <button id="btnRevisionHistory">修订记录</button>
                                 <button id="btnMultiPartHeader">设置分段页眉</button>
+                                <button id="btnSetTablePerssion">设置表格权限</button>
                                 <button id="btnInsMetaData" disabled class="next-feature-btn">插入数据元</button>
+                                <button id="btnFocusElement">定位元素</button>
                                 <button id="btnHmAiToken" disabled class="next-feature-btn">AI令牌</button>
                                 <button id="btnHmAiAuth" disabled class="next-feature-btn">AI认证</button>
                                 <button id="btnHmAiGen" disabled class="next-feature-btn">指尖AI</button>
@@ -274,6 +277,56 @@
                 <div>
                     <button id="btnConfirmInsertImage" class="dialog-btn btn-primary">确定</button>
                     <button id="btnCancelInsertImage" class="dialog-btn">取消</button>
+                </div>
+            </div>
+
+            <!-- 插入HTML对话框 -->
+            <div class="dialogBox insertHtmlDialog">
+                <h3>演示用 - 插入HTML</h3>
+                <div class="input-group">
+                    <label>HTML内容：</label>
+                    <textarea id="insertHtmlContent" placeholder="请输入要插入的HTML内容" rows="6"></textarea>
+                </div>
+                <div class="input-group">
+                    <label>定位标记（可选）：</label>
+                    <input type="text" id="insertHtmlPosTag" placeholder="请输入data-hm-code或data-hm-name的值，留空则在光标处插入">
+                </div>
+                <div class="help-text">
+                    使用说明：<br>
+                    1. 只填写HTML内容：在光标处插入HTML<br>
+                    2. 填写HTML内容和定位标记：在指定元素后插入HTML，光标定位到插入HTML之前<br>
+                    定位标记将通过 data-hm-code 或 data-hm-name 查找元素
+                </div>
+                <div>
+                    <button id="btnConfirmInsertHtml" class="dialog-btn btn-primary">确定</button>
+                    <button id="btnCancelInsertHtml" class="dialog-btn">取消</button>
+                </div>
+            </div>
+
+            <!-- 定位元素对话框 -->
+            <div class="dialogBox focusElementDialog">
+                <h3>定位到病历或元素</h3>
+                <div class="input-group">
+                    <label>病历ID（必填）：</label>
+                    <input type="text" id="focusDocCode" placeholder="请输入病历ID">
+                </div>
+                <div class="input-group">
+                    <label>元素ID（可选）：</label>
+                    <input type="text" id="focusEleCode" placeholder="请输入元素ID">
+                </div>
+                <div class="input-group">
+                    <label>元素内容（可选）：</label>
+                    <input type="text" id="focusEleContent" placeholder="请输入元素内容">
+                </div>
+                <div class="help-text">
+                    使用说明：<br>
+                    1. 只有病历ID：滚动条定位到病历<br>
+                    2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头<br>
+                    3. 病历+元素+元素内容：光标定位到元素内容的开头
+                </div>
+                <div>
+                    <button id="btnConfirmFocusElement" class="dialog-btn btn-primary">确定</button>
+                    <button id="btnCancelFocusElement" class="dialog-btn">取消</button>
                 </div>
             </div>
 
@@ -632,6 +685,51 @@
                 </div>
             </div>
 
+            <!-- 设置表格权限对话框 -->
+            <div class="dialogBox tablePermissionDialog" style="display:none;width:600px;">
+                <h3>演示用 - 设置表格权限</h3>
+                <!-- 权限类型选择 -->
+                <div class="input-group">
+                    <label>权限类型：</label>
+                    <div style="display: flex; gap: 20px;">
+                        <label style="flex: 1; display: inline-flex; align-items: center; white-space: nowrap;">
+                            <input type="radio" name="tablePermissionType" value="readonly" checked style="margin-right: 5px;"> 按行可只读
+                        </label>
+                        <label style="flex: 1; display: inline-flex; align-items: center; white-space: nowrap;">
+                            <input type="radio" name="tablePermissionType" value="deletable" style="margin-right: 5px;"> 按行可删除
+                        </label>
+                        <label style="flex: 1; display: inline-flex; align-items: center; white-space: nowrap;">
+                            <input type="radio" name="tablePermissionType" value="addable" style="margin-right: 5px;"> 按行可新增
+                        </label>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>表格编码：</label>
+                    <input type="text" id="tablePermissionCode" placeholder="请输入表格编码（data-hm-table-code或data-hm-datatable）">
+                </div>
+                <div class="input-group">
+                    <label>行号：</label>
+                    <input type="text" id="tablePermissionRowIndex" placeholder="支持区间格式，如：0-5,8,10-12">
+                </div>
+                <div style="margin-bottom: 25px;">
+                    <label class="switch-label">
+                        <label>启用状态：</label>
+                        <div class="switch" style="margin-left:12px;">
+                            <input type="checkbox" id="tablePermissionFlag" class="switch-flag" checked>
+                            <span class="slider">
+                                <span class="slider-circle"></span>
+                            </span>
+                        </div>
+                        <span class="switch-label-text">开启</span>
+                    </label>
+                </div>
+                <div>
+                    <button id="btnConfirmTablePermission" class="dialog-btn btn-primary">确定</button>
+                    <button id="btnCancelTablePermission" class="dialog-btn">取消</button>
+                    <div class="help-text" id="tablePermissionHelpText">设置指定表格行的只读/删除/新增权限</div>
+                </div>
+            </div>
+
             <!-- AI令牌弹窗 -->
             <div class="dialogBox aiTokenDialog" style="display:none;">
                 <h3>演示用 - AI令牌</h3>
@@ -643,7 +741,7 @@
                     <button id="btnSetAiToken" class="dialog-btn btn-primary">确定</button>
                     <button id="btnNoTokenTry" class="dialog-btn">无令牌尝试</button>
                     <button id="btnCloseAiToken" class="dialog-btn">取消</button>
-                    <div class="help-text">如果您还没有AI令牌，请在钉钉群联系惠每工作人员获取。</div>
+                    <div class="help-text">如果您还没有AI令牌，请前往 <a href="https://editor.huimei.com/#/ai-token" class="token-link">AI令牌申请</a> 页面申请。</div>
                 </div>
             </div>
         </div>

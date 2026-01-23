@@ -537,12 +537,216 @@
 	}
 
 	listCommand.prototype = {
+		/**
+		 * 检测选区是否跨越多个表格
+		 * @param {CKEDITOR.dom.selection} selection 选区
+		 * @returns {Boolean} 如果选中多个表格返回 true
+		 */
+		isMultipleTablesSelected: function( selection ) {
+			if ( !selection ) return false;
+			
+			var ranges = selection.getRanges();
+			if ( !ranges || ranges.length === 0 ) return false;
+			
+			var tables = [];
+			
+			for ( var i = 0; i < ranges.length; i++ ) {
+				var range = ranges[ i ];
+				var startContainer = range.startContainer;
+				var endContainer = range.endContainer;
+				
+				// 查找起始位置所在的表格
+				var startTable = this.findAncestorTable( startContainer );
+				// 查找结束位置所在的表格
+				var endTable = this.findAncestorTable( endContainer );
+				
+				// 如果起始和结束在不同的表格中
+				if ( startTable && endTable && !startTable.equals( endTable ) ) {
+					return true;
+				}
+				
+				// 收集所有涉及的表格
+				if ( startTable && tables.indexOf( startTable.$ ) === -1 ) {
+					tables.push( startTable.$ );
+				}
+				if ( endTable && tables.indexOf( endTable.$ ) === -1 ) {
+					tables.push( endTable.$ );
+				}
+			}
+			
+			// 如果涉及多个表格
+			return tables.length > 1;
+		},
+
+		/**
+		 * 查找元素的祖先表格
+		 * @param {CKEDITOR.dom.node} node 节点
+		 * @returns {CKEDITOR.dom.element|null} 表格元素或 null
+		 */
+		findAncestorTable: function( node ) {
+			var current = node;
+			while ( current ) {
+				if ( current.type === CKEDITOR.NODE_ELEMENT && current.is && current.is( 'table' ) ) {
+					return current;
+				}
+				current = current.getParent ? current.getParent() : null;
+			}
+			return null;
+		},
+
+		/**
+		 * 检测是否选中多个单元格
+		 * @param {CKEDITOR.editor} editor 编辑器实例
+		 * @param {CKEDITOR.dom.selection} selection 选区
+		 * @returns {Boolean} 如果选中多个单元格返回 true
+		 */
+		isMultipleCellsSelected: function( editor, selection ) {
+			if ( !selection ) return false;
+			
+			var ranges, editable, fakeSelectedCells;
+			
+			// 方法1：检查 CKEditor 的表格选择 API
+			if ( selection.isInTable && selection.isInTable() ) {
+				// 使用表格选择，检查选中的单元格数量
+				ranges = selection.getRanges();
+				if ( ranges && ranges.length > 1 ) {
+					return true;
+				}
+			}
+			
+			// 方法2：检查是否有使用"假选择"标记的单元格（CKEditor tableselection 插件）
+			if ( editor && editor.editable ) {
+				editable = editor.editable();
+				if ( editable ) {
+					fakeSelectedCells = editable.find( '.cke_table-faked-selection' );
+					if ( fakeSelectedCells && fakeSelectedCells.count() > 1 ) {
+						return true;
+					}
+				}
+			}
+			
+			// 方法3：检查选区范围
+			ranges = selection.getRanges();
+			if ( !ranges || ranges.length === 0 ) return false;
+			
+			var cells = [];
+			
+			for ( var i = 0; i < ranges.length; i++ ) {
+				var range = ranges[ i ];
+				var startContainer = range.startContainer;
+				var endContainer = range.endContainer;
+				
+				// 查找起始位置所在的单元格
+				var startCell = this.findAncestorCell( startContainer );
+				// 查找结束位置所在的单元格
+				var endCell = this.findAncestorCell( endContainer );
+				
+				// 如果起始和结束在不同的单元格中
+				if ( startCell && endCell && !startCell.equals( endCell ) ) {
+					return true;
+				}
+				
+				// 收集所有涉及的单元格
+				if ( startCell && cells.indexOf( startCell.$ ) === -1 ) {
+					cells.push( startCell.$ );
+				}
+				if ( endCell && cells.indexOf( endCell.$ ) === -1 ) {
+					cells.push( endCell.$ );
+				}
+			}
+			
+			// 如果涉及多个单元格
+			return cells.length > 1;
+		},
+
+		/**
+		 * 查找元素的祖先单元格
+		 * @param {CKEDITOR.dom.node} node 节点
+		 * @returns {CKEDITOR.dom.element|null} 单元格元素或 null
+		 */
+		findAncestorCell: function( node ) {
+			var current = node;
+			while ( current ) {
+				if ( current.type === CKEDITOR.NODE_ELEMENT && current.is && ( current.is( 'td' ) || current.is( 'th' ) ) ) {
+					return current;
+				}
+				current = current.getParent ? current.getParent() : null;
+			}
+			return null;
+		},
+
+		/**
+		 * 检测是否在禁用列表的数据元内
+		 * - newtextbox 内部、labelbox 上：禁用列表
+		 * - cellbox、段落、表格单元中：允许列表
+		 * @param {CKEDITOR.dom.element} element 起始元素
+		 * @returns {Boolean} 如果在禁用列表的数据元内返回 true
+		 */
+		isInsideDatasource: function( element ) {
+			var current = element;
+			while ( current && current.type === CKEDITOR.NODE_ELEMENT ) {
+				// 检查是否有 data-hm-node 属性（数据元的标识）
+				var nodeType = current.getAttribute && current.getAttribute( 'data-hm-node' );
+				if ( nodeType ) {
+					// cellbox 类型允许使用列表
+					if ( nodeType === 'cellbox' ) {
+						return false;
+					}
+					// labelbox、newtextbox 及其他数据元类型禁用
+					return true;
+				}
+				// 检查是否是 new-textbox-content（newtextbox 的内容区域）
+				if ( current.hasClass && current.hasClass( 'new-textbox-content' ) ) {
+					return true;
+				}
+				// 如果遇到段落或表格单元，允许使用列表
+				if ( current.is && ( current.is( 'p' ) || current.is( 'td' ) || current.is( 'th' ) || current.is( 'div' ) ) ) {
+					return false;
+				}
+				// 如果遇到 body 或其他边界，停止查找
+				if ( current.is && ( current.is( 'body' ) || current.is( 'html' ) ) ) {
+					break;
+				}
+				current = current.getParent();
+			}
+			return false;
+		},
+
 		exec: function( editor ) {
 			// Run state check first of all.
 			this.refresh( editor, editor.elementPath() );
 
+			var selection = editor.getSelection();
+			
+			// 检测是否选中多个表格，如果是则阻止列表操作
+			if ( this.isMultipleTablesSelected( selection ) ) {
+				if ( editor.showNotification ) {
+					editor.showNotification( '选中多个表格时不支持设置列表', 'warning' );
+				}
+				return;
+			}
+
+			// 检测是否选中多个单元格，如果是则阻止列表操作
+			if ( this.isMultipleCellsSelected( editor, selection ) ) {
+				if ( editor.showNotification ) {
+					editor.showNotification( '选中多个单元格时不支持设置列表', 'warning' );
+				}
+				return;
+			}
+
+			// 检测是否在数据元内，如果是则阻止列表操作
+			if ( selection ) {
+				var startElement = selection.getStartElement();
+				if ( this.isInsideDatasource( startElement ) ) {
+					// 在数据元内，显示提示并退出
+					if ( editor.showNotification ) {
+						editor.showNotification( '数据元内不支持设置列表', 'warning' );
+					}
+					return;
+				}
+			}
+
 			var config = editor.config,
-				selection = editor.getSelection(),
 				ranges = selection && selection.getRanges();
 
 			// Midas lists rule #1 says we can create a list even in an empty document.
@@ -672,6 +876,25 @@
 		refresh: function( editor, path ) {
 			var list = path.contains( listNodeNames, 1 ),
 				limit = path.blockLimit || path.root;
+
+			// 检查是否选中多个表格，如果是则禁用按钮
+			var selection = editor.getSelection();
+			if ( this.isMultipleTablesSelected( selection ) ) {
+				this.setState( CKEDITOR.TRISTATE_DISABLED );
+				return;
+			}
+
+			// 检查是否选中多个单元格，如果是则禁用按钮
+			if ( this.isMultipleCellsSelected( editor, selection ) ) {
+				this.setState( CKEDITOR.TRISTATE_DISABLED );
+				return;
+			}
+
+			// 检查是否在数据元内，如果是则禁用按钮
+			if ( path.lastElement && this.isInsideDatasource( path.lastElement ) ) {
+				this.setState( CKEDITOR.TRISTATE_DISABLED );
+				return;
+			}
 
 			// 1. Only a single type of list activate.
 			// 2. Do not show list outside of block limit.

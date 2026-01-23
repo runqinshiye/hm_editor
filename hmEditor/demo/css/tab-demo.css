@@ -598,6 +598,19 @@ body {
     font-style: italic;
 }
 
+.dialogBox .help-text .token-link {
+    color: #1890ff;
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid #1890ff;
+    transition: all 0.3s ease;
+}
+
+.dialogBox .help-text .token-link:hover {
+    color: #40a9ff;
+    border-bottom-color: #40a9ff;
+}
+
 .dialogBox .quick-links {
     margin-bottom: 15px;
     text-align: left;
@@ -1600,4 +1613,11 @@ body.smart-panel {
     .switch{
         margin-left:12px;
     }
+}
+.focusElementDialog .input-group label {
+    width: 140px;
+}
+.insertHtmlDialog .input-group label {
+    width: 140px;
+    text-align: right;
 }

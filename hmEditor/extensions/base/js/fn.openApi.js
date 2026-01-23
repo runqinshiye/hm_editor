@@ -255,15 +255,15 @@ HMEditor.fn({
      * @param {*} elementList 元素列表(数据元code 数组)
      * @param {Boolean} flag 是否只读
      */
-    setElementReadOnly: function (code, elementList,flag) {
-        this.documentModel.setElementReadOnly(code, elementList,flag);
+    setElementReadOnly: function (code, elementList, flag) {
+        this.documentModel.setElementReadOnly(code, elementList, flag);
     },
     /**
      * 设置文档修订模式
      * @param {Boolean} reviseMode 是否修订模式
      */
-    setDocReviseMode: function (reviseMode,retainModify) {
-        this.documentModel.setDocReviseMode(reviseMode,retainModify);
+    setDocReviseMode: function (reviseMode, retainModify) {
+        this.documentModel.setDocReviseMode(reviseMode, retainModify);
     },
     /**
      * 设置模板制作时需要的数据元
@@ -372,7 +372,7 @@ HMEditor.fn({
      * @param {*} targetNode 目标节点
      */
     generateSection: function (targetNode) {
-        this.hmAi.generator.generateMessage(targetNode,2);
+        this.hmAi.generator.generateMessage(targetNode, 2);
     },
     /**
      * 插入数据元
@@ -402,8 +402,8 @@ HMEditor.fn({
      * @param {String} params.section 节点标识（病历ID、表格ID或数据元CODE）
      * @param {Array} params.customProperty 自定义属性数组
      */
-    setCustomProperties:function(params){
-        this.documentModel.setCustomProperties(params.code,params.section,params.customProperty);
+    setCustomProperties: function (params) {
+        this.documentModel.setCustomProperties(params.code, params.section, params.customProperty);
     },
     /**
      * 删除自定义属性
@@ -412,8 +412,8 @@ HMEditor.fn({
      * @param {String} params.section 节点标识（病历ID、表格ID或数据元CODE）
      * @param {String} params.propertyName 属性名
      */
-    deleteCustomProperties:function(params){
-        this.documentModel.deleteCustomProperties(params.code,params.section,params.propertyNames);
+    deleteCustomProperties: function (params) {
+        this.documentModel.deleteCustomProperties(params.code, params.section, params.propertyNames);
     },
     /**
      * 获取自定义属性
@@ -423,8 +423,8 @@ HMEditor.fn({
      * @param {Array} params.propertyNames 属性名数组
      * @returns {Object} 属性名值对对象，格式：{属性名: 属性值}
      */
-    getCustomProperties:function(params){
-       return this.documentModel.getCustomProperties(params.code,params.section,params.propertyNames);
+    getCustomProperties: function (params) {
+        return this.documentModel.getCustomProperties(params.code, params.section, params.propertyNames);
     },
 
     /**
@@ -440,7 +440,7 @@ HMEditor.fn({
      * @returns {Array} data[].eleCode 修订数据元编码
      * @returns {Array} data[].eleName 修订数据元名称
      */
-    getDocRevisionHistory:function(code){
+    getDocRevisionHistory: function (code) {
         return this.documentModel.getRevisionHistory(code);
     },
     /**
@@ -488,14 +488,70 @@ HMEditor.fn({
         var _t = this;
         //return _t.documentModel.getDocCreateUser();
     },
-     /**
+    /**
      * 根据表格编码、列列表、行索引获取表格数据
      * @param {*} params
      * @param {*} params.tableCode 表格编码
      * @param {*} params.keyList 获取列列表
      * @param {*} params.rowIndex 获取行索引或列索引
      */
-    getTableData:function(params){
-        return this.documentModel.getTableListData(params.tableCode,params.keyList,params.rowIndex);
+    getTableData: function (params) {
+        return this.documentModel.getTableListData(params.tableCode, params.keyList, params.rowIndex);
+    },
+    /**
+     * 设置表格行只读
+     * @param {String} tableCode 表格唯一编号
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否只读，true:只读 false:可编辑
+     */
+    setTableRowReadonly: function (tableCode, rowIndex, flag) {
+        this.documentModel.setTableRowReadonly(tableCode, rowIndex, flag);
+    },
+    /**
+     * 设置表格行删除权限
+     * @param {*} tableCode 
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否可删除，true:可删除 false:不可删除
+     */
+    setTableRowDeletable: function (tableCode, rowIndex, flag) { 
+        this.documentModel.setTableRowDeletable(tableCode, rowIndex, flag);
+    },
+    /**
+     * 设置表格行新增权限
+     * @param {*} tableCode 
+     * @param {Number|Array} rowIndex 行索引或行索引数组
+     * @param {Boolean} flag 是否可新增，true:可新增 false:不可新增 
+     */
+    setTableRowAddable: function (tableCode, rowIndex, flag) {
+        this.documentModel.setTableRowAddable(tableCode, rowIndex, flag); 
+    },
+    /**
+     * 定位到病历或元素
+     * @param {String} docCode 病历ID（必填）
+     * @param {String} eleCode 元素ID（可选）
+     * @param {String} eleContent 元素内容（可选）
+     * @returns {Boolean} 是否成功定位
+     * 
+     * 使用说明：
+     * 1. 只有病历ID：滚动条定位到病历
+     * 2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头
+     * 3. 病历+元素+元素内容：光标定位到元素内容的开头
+     */
+    focusElement: function (docCode, eleCode, eleContent) {
+        return this.documentModel.focusElement(docCode, eleCode, eleContent);
+    },
+    /**
+     * 插入HTML内容
+     * @param {String} htmlContent 要插入的HTML内容
+     * @param {String} posTag 定位标记（可选），如果提供，将通过 data-hm-code=posTag 或 data-hm-name=posTag 查找元素，在元素后插入HTML，完成后光标定位到插入HTML之前
+     * @returns {Boolean} 是否成功插入
+     * 
+     * 使用说明：
+     * 1. insertHtml(htmlContent) - 在光标处插入HTML
+     * 2. insertHtml(htmlContent, posTag) - 在指定元素后插入HTML，光标定位到插入HTML之前
+     */
+    insertHtml: function (htmlContent, posTag) {
+        return this.documentModel.insertHtml(htmlContent, posTag);
     }
+    
 });

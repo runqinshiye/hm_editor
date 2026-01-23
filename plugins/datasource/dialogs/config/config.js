@@ -204,12 +204,17 @@ function changeTypeInit(val,texttype) {
     //
     $('.row .c2,.row .c4,.row .c5,.row .c6,.row .c7,.row .c8,.row .c9').hide();
 
-    // 只读 可自由录入 可删除 必须双击 不显示图标 默认当前时间 可编辑
+    // 只读 可自由录入 可删除 必须双击 不显示图标 默认当前时间 可编辑 定位标识
     if(!editFlag){
         textTypeChange(texttype);
     }
 
+    // 默认隐藏定位标识选项
+    $('.row .c10').hide();
+
     if(val == 'labelbox'){
+        // 标题类型显示定位标识选项
+        $('.row .c10').show();
     }else if(val == 'newtextbox'){
 
         if(texttype == '下拉'){
@@ -429,14 +434,22 @@ var dsSelect = {
 };
 
 function setConfig(data) {
-    initDateSel(data['data-hm-node']);
+    var nodeType = data['data-hm-node'];
+    // 如果是 positionnode，在界面上显示为 labelbox 类型，并勾选定位标识
+    if (nodeType == 'positionnode') {
+        nodeType = 'labelbox';
+        // 勾选定位标识复选框
+        $('#c10').prop('checked', true);
+    }
+    
+    initDateSel(nodeType);
     // 设置当前类型选中状态
-    $(".type input[type='radio'][value=" + data['data-hm-node'] + "]").attr('checked', true);
+    $(".type input[type='radio'][value=" + nodeType + "]").attr('checked', true);
     // 允许修改数据元类型
     $(".type input[type='radio']").attr('disabled', false);
 
 
-    if(data['data-hm-node'] == 'labelbox'){
+    if(nodeType == 'labelbox'){
         $("#dsInput").val(data['data-hm-name'] || '');
     }else{
         dsSelect.set(data['data-hm-name']);
@@ -445,7 +458,7 @@ function setConfig(data) {
                           (window.parent && window.parent.HMConfig && window.parent.HMConfig.allowModifyDatasource) || 
                           false;
         // 标题类数据元不显示按钮
-        if (allowModify && data['data-hm-node'] != 'labelbox') {
+        if (allowModify && nodeType != 'labelbox') {
             // 允许修改数据元名称和编码
             $("#interact-search").attr('disabled', false);
             $(".row input.ds-code").attr('disabled', false);
@@ -459,14 +472,14 @@ function setConfig(data) {
     }
     //$("#dsInput").attr('disabled', true);
 
-    if(data['data-hm-node'] == 'searchbox'){
+    if(nodeType == 'searchbox'){
         $("#interact-search1").val(data['_searchpair'] || '');
     }
     // $("#interact-search1").val(data['_searchPair']);
     // $("#interact-search2").val(data['_gradePair']);
     // $("#interact-search3").val(data['_diagway_pair']);
 
-    changeTypeInit(data['data-hm-node'],data['_texttype']);
+    changeTypeInit(nodeType, data['_texttype']);
     setInputText();
     setInputCheck();
     setSelect();
@@ -574,6 +587,10 @@ function config() {
     var _dsObj = { 'data-hm-name': '', 'data-hm-code': '' };
     if (nodeType == 'labelbox') {
         _dsObj['data-hm-name'] = $('#dsInput').val() || '';
+        // 如果勾选了定位标识，将节点类型改为 positionnode
+        if ($('#c10').is(':checked')) {
+            d['data-hm-node'] = 'positionnode';
+        }
         Object.assign(d, _dsObj);
         return d;
     }

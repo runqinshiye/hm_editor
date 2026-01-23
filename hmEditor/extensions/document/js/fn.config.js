@@ -214,7 +214,6 @@ commonHM.component['documentModel'].fn({
      * @param {Boolean} flag true:只读 false:可编辑
      */
     setElementReadOnlyState: function ($element, flag) {
-        var _t = this;
         var nodeType = $element.attr('data-hm-node');
         var evtState = flag ? 'none' : 'auto'; // pointer-events
         var editStr = flag ? 'false' : 'true'; // contenteditable
@@ -281,5 +280,286 @@ commonHM.component['documentModel'].fn({
                 }
                 break;
         }
+    },
+
+    /**
+     * 解析行号参数，支持多种格式：
+     * - 单个数字：5
+     * - 数字数组：[1, 2, 3]
+     * - 区间字符串："1-5" 表示 1,2,3,4,5
+     * - 混合字符串："1-5,8,10-12" 表示 1,2,3,4,5,8,10,11,12
+     * @param {Number|Array|String} rowIndex 行索引参数
+     * @returns {Array} 解析后的行索引数组
+     */
+    _parseRowIndex: function (rowIndex) {
+        var result = [];
+
+        // 如果是数字，直接返回数组
+        if (typeof rowIndex === 'number') {
+            return [rowIndex];
+        }
+
+        // 如果是数组，直接返回
+        if (Array.isArray(rowIndex)) {
+            return rowIndex;
+        }
+
+        // 如果是字符串，解析区间格式
+        if (typeof rowIndex === 'string') {
+            var parts = rowIndex.split(',');
+            for (var i = 0; i < parts.length; i++) {
+                var part = parts[i].trim();
+                if (part === '') continue;
+
+                // 检查是否是区间格式（如 "1-5"）
+                if (part.indexOf('-') > 0) {
+                    var range = part.split('-');
+                    if (range.length === 2) {
+                        var start = parseInt(range[0].trim(), 10);
+                        var end = parseInt(range[1].trim(), 10);
+                        if (!isNaN(start) && !isNaN(end) && start <= end) {
+                            for (var j = start; j <= end; j++) {
+                                if (result.indexOf(j) === -1) {
+                                    result.push(j);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // 单个数字
+                    var num = parseInt(part, 10);
+                    if (!isNaN(num) && result.indexOf(num) === -1) {
+                        result.push(num);
+                    }
+                }
+            }
+        }
+
+        return result;
+    },
+
+    /**
+     * 设置列表类表格指定行的只读状态
+     * @param {String} tableCode 表格编码（data-hm-table-code属性值）
+     * @param {Number|Array|String} rowIndex 行索引，支持：数字、数组、区间字符串如"1-5,8,10-12"
+     * @param {Boolean} flag true:只读 false:可编辑
+     */
+    tableRowReadonly: function (tableCode, rowIndex, flag) {
+        this._setTableRowPermission(tableCode, rowIndex, 'readonly', flag);
+    },
+
+    /**
+     * 设置列表类表格指定行的删除权限
+     * @param {String} tableCode 表格编码（data-hm-table-code属性值）
+     * @param {Number|Array|String} rowIndex 行索引，支持：数字、数组、区间字符串如"1-5,8,10-12"
+     * @param {Boolean} flag true:可删除 false:不可删除
+     */
+    tableRowDeletable: function (tableCode, rowIndex, flag) {
+        this._setTableRowPermission(tableCode, rowIndex, 'deletable', flag);
+    },
+
+    /**
+     * 设置列表类表格指定行的新增权限
+     * @param {String} tableCode 表格编码（data-hm-table-code属性值）
+     * @param {Number|Array|String} rowIndex 行索引，支持：数字、数组、区间字符串如"1-5,8,10-12"
+     * @param {Boolean} flag true:可新增 false:不可新增
+     */
+    tableRowAddable: function (tableCode, rowIndex, flag) {
+        this._setTableRowPermission(tableCode, rowIndex, 'addable', flag);
+    },
+
+    /**
+     * 通用的表格行权限设置方法
+     * @param {String} tableCode 表格编码
+     * @param {Number|Array|String} rowIndex 行索引，支持：数字、数组、区间字符串
+     * @param {String} permissionType 权限类型：'readonly'|'deletable'|'addable'
+     * @param {Boolean} flag 权限值
+     */
+    _setTableRowPermission: function (tableCode, rowIndex, permissionType, flag) {
+        var _t = this;
+        var $body = $(_t.editor.document.getBody().$);
+
+        // 参数校验
+        if (!tableCode) {
+            console.warn('tableRow' + permissionType + ': tableCode 参数不能为空');
+            return;
+        }
+
+        // 根据tableCode查找表格
+        var $table = $body.find('table[data-hm-table-code="' + tableCode + '"][data-hm-table-type="list"]');
+        if ($table.length === 0) {
+            $table = $body.find('table[data-hm-datatable="' + tableCode + '"][data-hm-table-type="list"]');
+        }
+
+        if ($table.length === 0) {
+            console.warn('tableRow' + permissionType + ': 未找到表格编码为 ' + tableCode + ' 的列表类表格');
+            return;
+        }
+
+        var $tbody = $table.find('tbody');
+        if ($tbody.length === 0) {
+            console.warn('tableRow' + permissionType + ': 表格中未找到tbody');
+            return;
+        }
+
+        var evaluateType = $table.attr('evaluate-type') || 'col';
+        var rowIndexArray = _t._parseRowIndex(rowIndex);
+
+        if (evaluateType === 'col') {
+            _t._setColTableRowsPermission($tbody, rowIndexArray, permissionType, flag);
+        } else if (evaluateType === 'row') {
+            _t._setRowTableColumnsPermission($tbody, rowIndexArray, permissionType, flag);
+        }
+    },
+
+    /**
+     * 设置竖向表格（col模式）指定行的权限
+     * @param {jQuery} $tbody 表格体元素
+     * @param {Array} rowIndexArray 行索引数组
+     * @param {String} permissionType 权限类型
+     * @param {Boolean} flag 权限值
+     */
+    _setColTableRowsPermission: function ($tbody, rowIndexArray, permissionType, flag) {
+        var _t = this;
+        var $rows = $tbody.find('tr');
+
+        rowIndexArray.forEach(function (rowIdx) {
+            if (rowIdx < 0 || rowIdx >= $rows.length) {
+                console.warn('tableRow' + permissionType + ': 行索引 ' + rowIdx + ' 超出范围');
+                return;
+            }
+
+            var $row = $rows.eq(rowIdx);
+            $row.attr('_row_' + permissionType, flag ? 'true' : 'false');
+
+            // 只读权限需要额外处理单元格编辑状态和简洁模式
+            if (permissionType === 'readonly') {
+                $row.find('td').each(function () {
+                    var $cell = $(this);
+                    if (flag) {
+                        $cell.attr('contenteditable', 'false');
+                    } else {
+                        $cell.removeAttr('contenteditable');
+                    }
+                    _t._setCellContentReadonly($cell, flag);
+                });
+                _t._setConciseModel($row, flag);
+            }
+        });
+    },
+
+    /**
+     * 设置横向表格（row模式）指定列的权限
+     * @param {jQuery} $tbody 表格体元素
+     * @param {Array} columnIndexArray 列索引数组
+     * @param {String} permissionType 权限类型
+     * @param {Boolean} flag 权限值
+     */
+    _setRowTableColumnsPermission: function ($tbody, columnIndexArray, permissionType, flag) {
+        var _t = this;
+        var $rows = $tbody.find('tr');
+
+        columnIndexArray.forEach(function (colIdx) {
+            $rows.each(function () {
+                var $row = $(this);
+                var $dataCells = $row.find('td:not(.hm-table-horizontal-header)');
+                
+                if (colIdx < 0 || colIdx >= $dataCells.length) {
+                    return;
+                }
+
+                var $cell = $dataCells.eq(colIdx);
+                $cell.attr('_cell_' + permissionType, flag ? 'true' : 'false');
+
+                // 只读权限需要额外处理单元格编辑状态和简洁模式
+                if (permissionType === 'readonly') {
+                    if (flag) {
+                        $cell.attr('contenteditable', 'false');
+                    } else {
+                        $cell.removeAttr('contenteditable');
+                    }
+                    _t._setCellContentReadonly($cell, flag);
+                    _t._setConciseModel($cell, flag);
+                }
+            });
+        });
+    },
+
+    /**
+     * 设置简洁模式
+     * @param {jQuery} $element 目标元素（行或单元格）
+     * @param {Boolean} flag true:启用简洁模式 false:关闭简洁模式
+     */
+    _setConciseModel: function ($element, flag) {
+        if (flag) {
+            var features = '._printHide,._paragraphHide,.hide_class,' +
+                '.new-textbox,[data-hm-node],[_placeholderText],ins,.cke_page_split_mark,.continuation-identifier';
+            $element.find(features).addClass('concise-model');
+        } else {
+            $element.find('.concise-model').removeClass('concise-model');
+        }
+    },
+
+    /**
+     * 设置单元格内容的只读状态
+     * @param {jQuery} $cell 单元格元素
+     * @param {Boolean} flag true:只读 false:可编辑
+     */
+    _setCellContentReadonly: function ($cell, flag) {
+        var evtState = flag ? 'none' : 'auto';
+        var editStr = flag ? 'false' : 'true';
+
+        // 设置各类数据元的编辑状态
+        var nodeTypes = ['timebox', 'dropbox', 'checkbox', 'radiobox', 'searchbox', 'newtextbox'];
+        nodeTypes.forEach(function(nodeType) {
+            $cell.find('span[data-hm-node="' + nodeType + '"]:not([_isdisabled="true"])').css('pointer-events', evtState);
+        });
+        $cell.find('button[data-hm-id]').css('pointer-events', evtState);
+
+        // 设置新文本框的编辑状态
+        var _newTextBox = $cell.find('span[data-hm-node="newtextbox"]:not([_isdisabled="true"]):not([notallowwrite="true"])');
+        if (_newTextBox.length > 0) {
+            _newTextBox.find(".new-textbox-content").attr("contenteditable", editStr);
+            _newTextBox.find(".new-textbox-content").find('span:not([data-hm-node="expressionbox"]), font').attr("contenteditable", editStr);
+        }
+
+        // 设置文本框组件的编辑状态
+        $cell.find('span[data-hm-node="textboxwidget"]').attr("contenteditable", editStr);
+    },
+
+    /**
+     * 检查表格行是否为只读状态
+     * @param {jQuery} $row 表格行元素
+     * @returns {Boolean} true:只读 false:可编辑
+     */
+    isTableRowReadonly: function ($row) {
+        return $row && $row.length && $row.attr('_row_readonly') === 'true';
+    },
+
+    /**
+     * 检查表格单元格是否为只读状态（用于横向表格）
+     * @param {jQuery} $cell 表格单元格元素
+     * @returns {Boolean} true:只读 false:可编辑
+     */
+    isTableCellReadonly: function ($cell) {
+        return $cell && $cell.length && $cell.attr('_cell_readonly') === 'true';
+    },
+
+    /**
+     * 检查表格行是否可删除
+     * @param {jQuery} $row 表格行元素
+     * @returns {Boolean} true:可删除 false:不可删除
+     */
+    isTableRowDeletable: function ($row) {
+        return !$row || !$row.length || $row.attr('_row_deletable') !== 'false';
+    },
+
+    /**
+     * 检查表格行是否可新增
+     * @param {jQuery} $row 表格行元素
+     * @returns {Boolean} true:可新增 false:不可新增
+     */
+    isTableRowAddable: function ($row) {
+        return !$row || !$row.length || $row.attr('_row_addable') !== 'false';
     }
 });

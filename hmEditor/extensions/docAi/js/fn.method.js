@@ -44,4 +44,4 @@ commonHM.component['hmAi'].fn({
             sessionId:window.hmEditor.sessionId
         });
     } 
-})
+});

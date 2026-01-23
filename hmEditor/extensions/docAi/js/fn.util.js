@@ -178,12 +178,23 @@ commonHM.component['hmAi'].fnSub("utils", {
             var data = JSON.parse(JSON.stringify(opts.data || {}));
             data.index = index++;
             console.log('beginRequest:' + data.index);
-            var _pWindow = parent.window;
-            var aiServer = _pWindow.HMEditorLoader && _pWindow.HMEditorLoader.autherEntity && _pWindow.HMEditorLoader.autherEntity.aiServer;
-
+            var _pWindow = parent.window; 
+            var autherEntity = _pWindow.HMEditorLoader && _pWindow.HMEditorLoader.autherEntity;
+            var aiServer = autherEntity && autherEntity.aiServer;
+            var headers = {};
+            if (autherEntity && autherEntity.authToken) {
+                headers = {
+                    "Authorization": "Bearer " + autherEntity.authToken
+                };
+            } else if (autherEntity && autherEntity.huimei_id) {
+                headers = {
+                    "huimei_id": autherEntity.huimei_id
+                };
+            }
             _t.request({
                 url: aiServer + '/aigc/recommend/cdss_stream_chat',
                 data: data,
+                headers: headers,
                 success: function (result) {
                     console.log('idx:' + data.index);
                     if (data.index > _t.index) {

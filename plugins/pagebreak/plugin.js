@@ -5578,7 +5578,7 @@ function combine$Nodes(editor, $node) {
  * @param {Object} prevPage - 上一页元素
  */
 function updateHeaderByMultiPartHeader(editor, prevPage) {
-    var widgets = $(prevPage).find('[data-hm-widgetid]');
+    var widgets = $(prevPage);
     var multiPartHeader = editor.HMConfig.multiPartHeader || {};
     var headerList = multiPartHeader.headerList || [];
     var controlElementName = multiPartHeader.controlElementName || "";
@@ -5587,13 +5587,13 @@ function updateHeaderByMultiPartHeader(editor, prevPage) {
         // 获取当前页面首个病历
         var widget = widgets[0];
         var widgetId = widget.getAttribute('data-hm-widgetid');
-        console.log("当前页面首个病历ID: " + widgetId);
+        // console.log("当前页面首个病历ID: " + widgetId);
         
         // 当前页面首个病历的记录时间
         var recordTime = $(widget).find('[data-hm-name="'+controlElementName+'"]:not([data-hm-node="labelbox"])').text();
         var recordTimePage = new Date(recordTime).getTime();
         // 获取当前页面页眉信息
-        var pagehead = $(prevPage).find('table[_paperheader="true"]')[0];
+        var pagehead = $(prevPage).find('.hm-page-header-group table[_paperheader="true"]')[0];
         
         // 替换转科换床记录
         for (var d = 0; d < headerList.length; d++) {
@@ -5617,6 +5617,7 @@ function updateHeaderByMultiPartHeader(editor, prevPage) {
                     var headerName = $(pagehead).find('[data-hm-name="'+key+'"]:not([data-hm-node="labelbox"])');
                     if(headerName.length > 0) {
                         var headercontent = $(headerName).find("span.new-textbox-content");
+                        headercontent.removeAttr('_placeholdertext');
                         headercontent.html(headerData[key]);
                     }
                 }

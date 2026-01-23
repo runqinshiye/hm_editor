@@ -828,7 +828,7 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 
 ### 质控提醒功能无法调用
 
-1. 确保已正确初始化认证信息（调用initAutherEntity）
+1. 确保已正确初始化认证信息（调用aiAuth方法）
 2. 检查质控参数是否完整，必填字段不能为空
 3. 确认编辑器实例已正确加载
 4. 检查网络连接和AI服务器状态
@@ -2278,3 +2278,147 @@ function onElementDbclick(element) {
 2. **错误处理**：建议在方法内部添加错误处理逻辑，避免脚本错误影响编辑器使用
 3. **性能考虑**：避免在事件处理方法中执行耗时操作
 4. **元素参数**：element参数为DOM元素对象，可通过jQuery包装后使用：`$(element)`
+
+
+#### focusElement - 定位到病历或元素
+
+该方法用于定位到指定的病历或元素位置，支持滚动定位、光标定位和高亮效果。
+
+**方法签名：**
+```javascript
+focusElement(docCode, eleCode, eleContent)
+```
+
+**参数说明：**
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| docCode | String | 是 | 病历ID，用于定位目标病历 |
+| eleCode | String | 否 | 元素ID（data-hm-code 或 data-hm-name），用于定位病历中的具体元素 |
+| eleContent | String | 否 | 元素内容，用于在元素内容中定位到指定文本位置 |
+
+**返回值：** Boolean - 是否成功定位
+
+**使用示例：**
+```javascript
+// 示例1：只定位到病历
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.focusElement('DOC001');
+        console.log('已定位到病历');
+    });
+
+// 示例2：定位到病历中的元素
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.focusElement('DOC001', 'ELEMENT001');
+        console.log('已定位到元素');
+    });
+
+// 示例3：定位到元素内容中的指定文本
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.focusElement('DOC001', 'ELEMENT001', '睡眠障碍');
+        console.log('已定位到指定文本');
+    });
+```
+
+**使用说明：**
+- **情况1**：只传 `docCode`，滚动条定位到病历位置，并添加高亮效果
+- **情况2**：传 `docCode` + `eleCode`，滚动条定位到元素位置，如果是文本元素（newtextbox）则光标定位到元素内容的开头，并添加高亮效果
+- **情况3**：传 `docCode` + `eleCode` + `eleContent`，光标定位到元素内容中指定文本的开头位置，并添加高亮效果
+- 高亮效果会在 3 秒后自动消失
+- 元素查找优先通过 `data-hm-code` 属性，如果找不到则通过 `data-hm-name` 属性查找
+- 对于文本元素（newtextbox），会自动定位到内部的 `.new-textbox-content` 子元素
+
+**常见问题：**
+
+1. **定位失败返回 false**：检查 `docCode` 是否正确，确保目标病历已加载到编辑器中
+2. **元素找不到**：检查 `eleCode` 是否正确，确保元素的 `data-hm-code` 或 `data-hm-name` 属性值匹配
+3. **光标不显示**：确保目标元素是可编辑的文本元素（newtextbox 类型）
+4. **文本定位失败**：如果指定的 `eleContent` 在元素中找不到，会自动定位到元素开头
+
+**最佳实践：**
+
+1. **文档加载后调用**：确保在文档完全加载后再调用定位方法
+2. **错误处理**：检查返回值判断是否定位成功
+3. **用户体验**：配合高亮效果帮助用户快速找到目标位置
+4. **精确定位**：需要精确定位时，使用 `eleContent` 参数指定目标文本
+
+#### insertHtml - 插入HTML内容
+
+该方法用于插入HTML内容，支持在光标处插入或在指定元素后插入。
+
+**方法签名：**
+```javascript
+insertHtml(htmlContent, posTag)
+```
+
+**参数说明：**
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| htmlContent | String | 是 | 要插入的HTML内容 |
+| posTag | String | 否 | 定位标记，如果提供，将通过 data-hm-code=posTag 或 data-hm-name=posTag 查找元素，在元素后插入HTML，完成后光标定位到插入HTML之前 |
+
+**返回值：** Boolean - 是否成功插入
+
+**使用示例：**
+```javascript
+// 示例1：在光标处插入HTML
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.insertHtml('<p>这是一段HTML内容</p>');
+        console.log('HTML插入成功');
+    });
+
+// 示例2：在指定元素后插入HTML
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.insertHtml('<p>插入的内容</p>', 'ELEMENT_CODE_001');
+        console.log('HTML插入成功');
+    });
+
+// 示例3：插入带样式的HTML
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.insertHtml('<div style="color: red;">红色文字</div>');
+    });
+
+// 示例4：插入复杂HTML结构
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.insertHtml('<ul><li>项目1</li><li>项目2</li></ul>');
+    });
+```
+
+**功能说明：**
+
+1. **在光标处插入**：当不提供 `posTag` 参数时，HTML内容会插入到当前光标位置
+   - 如果光标在数据元内部，HTML会自动转换为纯文本插入，以保持数据元的完整性
+   - 如果光标在数据元外部，正常插入HTML内容
+
+2. **在指定元素后插入**：当提供 `posTag` 参数时，会查找对应的元素并在元素后插入HTML
+   - 首先通过 `data-hm-code=posTag` 查找元素
+   - 如果未找到，则通过 `data-hm-name=posTag` 查找元素
+   - 插入完成后，光标会定位到插入HTML之前（即元素后）
+
+**注意事项：**
+
+- 如果光标在数据元（如 `newtextbox`、`timebox` 等）内部，HTML内容会自动转换为纯文本插入，以保持数据元的完整性
+- 如果未找到指定的定位元素（`posTag`），方法会返回 `false` 并在控制台输出警告信息
+- 插入HTML后会自动触发 `togglePlaceHolder` 事件，确保占位符状态正确更新
+
+**常见问题：**
+
+1. **插入失败返回 false**：检查 `htmlContent` 是否为空，或 `posTag` 对应的元素是否存在
+2. **HTML被转换为文本**：这是因为光标在数据元内部，这是正常行为，用于保护数据元结构
+3. **元素找不到**：检查 `posTag` 是否正确，确保元素的 `data-hm-code` 或 `data-hm-name` 属性值匹配
+4. **光标位置不正确**：使用 `posTag` 时，插入后光标会定位到插入HTML之前，这是预期行为
+
+**最佳实践：**
+
+1. **参数验证**：插入前验证 `htmlContent` 参数的有效性
+2. **错误处理**：检查返回值判断是否插入成功
+3. **数据元保护**：理解数据元内部自动转换文本的机制，这是为了保护数据元结构
+4. **元素定位**：使用 `posTag` 时，确保目标元素已正确加载到编辑器中

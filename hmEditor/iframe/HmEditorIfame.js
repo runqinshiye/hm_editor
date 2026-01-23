@@ -571,9 +571,14 @@
          */
         aiAuth: function (autherEntity, recordMap, cusMayson, isAi) {
             var _t = this;
-            _t.setAiToken(autherEntity.authToken);
+            if (autherEntity.authToken) {
+                _t.setAiToken(autherEntity.authToken);
+            }
             _t.autherEntity = autherEntity;
-            _t.recordMap = recordMap; // 病历文书映射表
+            // 如果存在病历文书列表，需要更新；如果只更新认证信息，可不传recordMap参数
+            if(recordMap){
+                _t.recordMap = recordMap; // 病历文书映射表
+            } 
             if (cusMayson) {
                 return;
             } else {

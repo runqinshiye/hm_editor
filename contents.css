@@ -1280,27 +1280,17 @@ em strong{
 
 /* 节点高亮样式 */
 .cke_node_highlight { 
+	outline: rgb(66, 151, 254) solid 2px;
     animation: cke_highlight_pulse 0.6s ease-in-out; 
-    background-color: #fff3cd !important; 
+    /* background-color: #fff3cd !important; 
     border: 2px solid #ff6b35 !important; 
     border-radius: 4px !important; 
-    box-shadow: 0 0 15px rgba(255, 107, 53, 0.4) !important; 
+    box-shadow: 0 0 15px rgba(255, 107, 53, 0.4) !important;  */
     position: relative !important; 
     z-index: 1000 !important; 
 } 
 
-.cke_node_highlight::before { 
-    content: ""; 
-    position: absolute; 
-    top: -4px; 
-    left: -4px; 
-    right: -4px; 
-    bottom: -4px; 
-    background: linear-gradient(45deg, #ff6b35, #ffa726, #ff6b35); 
-    border-radius: 6px; 
-    z-index: -1; 
-    animation: cke_highlight_glow 2s ease-in-out infinite; 
-} 
+
 
 @keyframes cke_highlight_pulse { 
     0% { transform: scale(1); } 
@@ -1809,5 +1799,35 @@ span[data-hm-node=timebox][_notnull=true].concise-model:after{
 
 .cke_image_resizing {
     user-select: none;
+}
+
+/* 定位标识节点样式 */
+[data-hm-node="positionnode"] {
+    display: inline-block;
+    width: 0.4em;
+    height: 0.9em;
+    vertical-align: middle;
+    position: relative;
+    margin: 0 1px;
+    cursor: pointer;
+}
+
+[data-hm-node="positionnode"]::before {
+    content: "†";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.8em;
+    font-weight: 400;
+    color: #000;
+    line-height: 1;
+}
+
+/* 打印时隐藏定位标识 */
+@media print {
+    [data-hm-node="positionnode"] {
+        display: none !important;
+    }
 }
 

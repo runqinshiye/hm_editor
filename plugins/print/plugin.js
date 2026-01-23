@@ -203,8 +203,15 @@ function dealPrintLabel(editor, syncType) {
     var breakLineEleEnd = $body.find("[data-hm-node='continuation-identifier-end']");
     var breakLineEleNew = $body.parent().find('>.breakLineEleNew');
     if (syncType === "打印") {
-        breakLineEleStart.remove();
-        breakLineEleEnd.remove();
+        // 删除续打标识，包括表格中的续打标识行
+        if (breakLineEleStart.length > 0) {
+            breakLineEleStart.closest('tr[data-hm-continuation-row="true"]').remove();
+            breakLineEleStart.remove();
+        }
+        if (breakLineEleEnd.length > 0) {
+            breakLineEleEnd.closest('tr[data-hm-continuation-row="true"]').remove();
+            breakLineEleEnd.remove();
+        }
         breakLineEleNew.remove();
         return true;
     }
@@ -214,32 +221,85 @@ function dealPrintLabel(editor, syncType) {
     // 老续打
     if (breakLineEleStart.length > 0) {
         if (breakLineEleStart.length > 0) {
-            breakLineEleStart.prevAll().css("opacity", "0").css('border-color', 'transparent')
-                .find('*').css("opacity", "0").css('border-color', 'transparent');
-            parentsObj = breakLineEleStart.parents();
-            if (parentsObj && parentsObj.length > 0) {
-                for (idx = 0; idx < parentsObj.length; idx++) {
-                    iterator = $(parentsObj[idx]);
-                    // 遇到 body 或者分页页面时 break
-                    if (iterator[0].tagName === 'BODY'/* || iterator.hasClass('hm-logic-page')*/) {
-                        break;
+            // 检查续打标识是否在表格中
+            var $continuationRow = breakLineEleStart.closest('tr[data-hm-continuation-row="true"]');
+            if ($continuationRow.length > 0) {
+                // 续打标识在表格中：需要隐藏表格中续打标识所在行之前的所有行
+                var $table = $continuationRow.closest('table');
+                if ($table.length > 0) {
+                    // 隐藏表格中续打标识所在行之前的所有行（包括表头、thead、tbody等）
+                    var $allRows = $table.find('tr');
+                    var continuationRowIndex = $allRows.index($continuationRow);
+                    $allRows.each(function(index) {
+                        if (index < continuationRowIndex) {
+                            $(this).css("opacity", "0").css('border-color', 'transparent')
+                                .find('*').css("opacity", "0").css('border-color', 'transparent');
+                        }
+                    });
+                    // 隐藏续打标识后续行的上边框，避免与上一页的下边框重叠
+                    $allRows.each(function(index) {
+                        if (index > continuationRowIndex) {
+                            $(this).css("border-top", "none");
+                            $(this).find('td, th').css("border-top", "none");
+                        }
+                    });
+                    // 如果续打标识在第一行，还需要隐藏表格的上边框
+                    if (continuationRowIndex === 0) {
+                        $table.css("border-top", "none");
                     }
-                    iterator.prevAll().css("opacity", "0").css('border-color', 'transparent');
+                    // 隐藏表格之前的所有内容
+                    $table.prevAll().css("opacity", "0").css('border-color', 'transparent')
+                        .find('*').css("opacity", "0").css('border-color', 'transparent');
+                }
+            } else {
+                // 续打标识不在表格中：使用原有逻辑
+                breakLineEleStart.prevAll().css("opacity", "0").css('border-color', 'transparent')
+                    .find('*').css("opacity", "0").css('border-color', 'transparent');
+                parentsObj = breakLineEleStart.parents();
+                if (parentsObj && parentsObj.length > 0) {
+                    for (idx = 0; idx < parentsObj.length; idx++) {
+                        iterator = $(parentsObj[idx]);
+                        // 遇到 body 或者分页页面时 break
+                        if (iterator[0].tagName === 'BODY'/* || iterator.hasClass('hm-logic-page')*/) {
+                            break;
+                        }
+                        iterator.prevAll().css("opacity", "0").css('border-color', 'transparent');
+                    }
                 }
             }
             breakLineEleStart.css("display", "none");
         }
         if (breakLineEleEnd.length > 0) {
-            breakLineEleEnd.nextAll().remove();
-            parentsObj = breakLineEleEnd.parents();
-            if (parentsObj && parentsObj.length > 0) {
-                for (idx = 0; idx < parentsObj.length; idx++) {
-                    iterator = $(parentsObj[idx]);
-                    // 遇到 body 或者分页页面时 break
-                    if (iterator[0].tagName === 'BODY'/* || iterator.hasClass('hm-logic-page')*/) {
-                        break;
+            // 检查续打结束标识是否在表格中
+            var $continuationEndRow = breakLineEleEnd.closest('tr[data-hm-continuation-row="true"]');
+            if ($continuationEndRow.length > 0) {
+                // 续打结束标识在表格中：需要删除表格中续打结束标识所在行之后的所有行
+                var $table = $continuationEndRow.closest('table');
+                if ($table.length > 0) {
+                    // 删除表格中续打结束标识所在行之后的所有行
+                    var $allRows = $table.find('tr');
+                    var continuationEndRowIndex = $allRows.index($continuationEndRow);
+                    $allRows.each(function(index) {
+                        if (index > continuationEndRowIndex) {
+                            $(this).remove();
+                        }
+                    });
+                    // 删除表格之后的所有内容
+                    $table.nextAll().remove();
+                }
+            } else {
+                // 续打结束标识不在表格中：使用原有逻辑
+                breakLineEleEnd.nextAll().remove();
+                parentsObj = breakLineEleEnd.parents();
+                if (parentsObj && parentsObj.length > 0) {
+                    for (idx = 0; idx < parentsObj.length; idx++) {
+                        iterator = $(parentsObj[idx]);
+                        // 遇到 body 或者分页页面时 break
+                        if (iterator[0].tagName === 'BODY'/* || iterator.hasClass('hm-logic-page')*/) {
+                            break;
+                        }
+                        iterator.nextAll().remove();
                     }
-                    iterator.nextAll().remove();
                 }
             }
             breakLineEleEnd.css("display", "none");
@@ -907,6 +967,11 @@ function doPrint(editor, syncType, timeout, download, callback, downloadPdfCallb
         clearTimeout(timeIndex);
     }, timeout);
 }
+/**
+ * 添加修订样式
+ * @param {Object} body - 文档对象
+ * @param {boolean} shouldShowReviseInPrint - 是否显示修订
+ */
 function addReviseStyle(body, shouldShowReviseInPrint){
     if(shouldShowReviseInPrint){
         $(body.$).find('.hm_revise_ins').each(function() {

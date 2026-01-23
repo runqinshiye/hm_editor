@@ -616,45 +616,151 @@ CKEDITOR.plugins.add('document', {
 
             // 取消标志
             if (toggler === 'cancelSettingUp') {
+                // 删除续打标识，包括表格中的续打标识行
+                $(body.$).find(".continuation-identifier").closest('tr[data-hm-continuation-row="true"]').remove();
                 $(body.$).find(".continuation-identifier").remove();
                 return;
             }
 
-            // 设置标志
-            var settingUpLabel = editor.elementPath().contains('table', true, true);
-            if (!settingUpLabel) {
-                settingUpLabel = editor.elementPath().contains('p');
-            }
-            if (!settingUpLabel) {
+            // 设置标志 - 参考实时分页的逻辑，在当前位置插入标识
+            var element = editor.elementPath();
+            var lastElement = element.lastElement;
+            if (!lastElement) {
                 return;
             }
-            settingUpLabel = settingUpLabel.$;
+
+            // 获取当前光标位置
+            var range = editor.getSelection().getRanges()[0];
+            if (!range) {
+                return;
+            }
+
+            // 找到合适的插入点：参考实时分页，使用lastElement来定位
+            var insertPoint = null;
+            var $insertPoint = null;
+            
+            // 如果在表格中，找到当前单元格或行
+            var tableCell = element.contains('td') || element.contains('th');
+            var tableRow = element.contains('tr');
+            var table = element.contains('table', true, true);
+            
+            if (tableCell || tableRow || table) {
+                // 在表格中：创建一个特殊的表格行来包含续打标识
+                // 这样既符合HTML规范，又能保持位置正确
+                var tableElement = table || (tableRow ? tableRow.getAscendant('table') : null) || 
+                                  (tableCell ? tableCell.getAscendant('table') : null);
+                if (tableElement) {
+                    var $table = $(tableElement.$);
+                    // 找到目标行
+                    var trElement = null;
+                    if (tableCell) {
+                        trElement = tableCell.getAscendant('tr');
+                    } else if (tableRow) {
+                        trElement = tableRow;
+                    }
+                    
+                    if (trElement) {
+                        // 在目标行前面/后面插入一个特殊的表格行来包含续打标识
+                        insertPoint = trElement;
+                        $insertPoint = $(trElement.$);
+                        // 标记这是在表格中插入
+                        window._tempContinuationInTable = true;
+                    } else {
+                        // 如果找不到行，在表格前面/后面插入
+                        insertPoint = tableElement;
+                        $insertPoint = $table;
+                    }
+                } else {
+                    insertPoint = table;
+                    $insertPoint = $(table.$);
+                }
+            } else {
+                // 如果不是表格，查找p或其他块级元素
+                var blockElement = element.contains('p') || element.contains('div') || element.contains('h1') || 
+                                   element.contains('h2') || element.contains('h3') || element.contains('h4') || 
+                                   element.contains('h5') || element.contains('h6') || element.contains('li');
+                if (blockElement) {
+                    insertPoint = blockElement;
+                    $insertPoint = $(blockElement.$);
+                } else {
+                    // 如果找不到块级元素，使用lastElement
+                    insertPoint = lastElement;
+                    $insertPoint = $(lastElement.$);
+                }
+            }
+
+            if (!$insertPoint || !$insertPoint.length) {
+                return;
+            }
 
             var startLabel = $(body.$).find("[data-hm-node='continuation-identifier-start']");
             var endLabel = $(body.$).find("[data-hm-node='continuation-identifier-end']");
             var hrLabel;
-            var findClosestCompleteTableRow = editor.plugins.tabletools.tableArchitectureTools.findClosestCompleteTableRow;
 
             if (toggler === 'settingUpStart') {
-                startLabel && startLabel.length > 0 && startLabel.remove();
+                // 删除已有的起始标识，包括表格中的续打标识行
+                if (startLabel && startLabel.length > 0) {
+                    startLabel.closest('tr[data-hm-continuation-row="true"]').remove();
+                    startLabel.remove();
+                }
                 var startPlaceholder = '-------------------------------------------------------续----打----开----始----------------------------------------------------------------';
-                hrLabel = '<div data-hm-node="continuation-identifier-start" class="continuation-identifier" title="续打开始"><input readonly placeholder="' + startPlaceholder + '"/><input></div>';
+                var isInTable = window._tempContinuationInTable;
+                if (isInTable) {
+                    delete window._tempContinuationInTable;
+                    // 在表格中：创建一个特殊的表格行来包含续打标识
+                    // 获取表格的列数
+                    var $tr = $insertPoint;
+                    var colCount = $tr.find('td, th').length;
+                    if (colCount === 0) {
+                        // 如果当前行没有单元格，尝试从表格获取列数
+                        var $table = $tr.closest('table');
+                        var $firstRow = $table.find('tr').first();
+                        colCount = $firstRow.find('td, th').length || 1;
+                    }
+                    // 创建一个包含续打标识的表格行
+                    hrLabel = '<tr data-hm-continuation-row="true"><td colspan="' + colCount + '" style="padding:0;border:none;"><div data-hm-node="continuation-identifier-start" class="continuation-identifier" title="续打开始"><input readonly placeholder="' + startPlaceholder + '"/><input></div></td></tr>';
+                } else {
+                    hrLabel = '<div data-hm-node="continuation-identifier-start" class="continuation-identifier" title="续打开始"><input readonly placeholder="' + startPlaceholder + '"/><input></div>';
+                }
 
-                $(settingUpLabel).before(hrLabel);
+                // 在当前位置插入
+                $insertPoint.before(hrLabel);
 
                 startLabel = $(body.$).find("[data-hm-node='continuation-identifier-start']");
-                if (endLabel && endLabel.length > 0 && endLabel.offset().top <= startLabel.offset().top) {
+                if (endLabel && endLabel.length > 0 && startLabel.length > 0 && endLabel.offset().top <= startLabel.offset().top) {
                     endLabel.remove();
                 }
             } else if (toggler === 'settingUpEnd') {
-                endLabel && endLabel.length > 0 && endLabel.remove();
+                // 删除已有的结束标识，包括表格中的续打标识行
+                if (endLabel && endLabel.length > 0) {
+                    endLabel.closest('tr[data-hm-continuation-row="true"]').remove();
+                    endLabel.remove();
+                }
                 var endPlaceholder = '----------------------------------------------------------续----打----结----束----------------------------------------------------------------';
-                hrLabel = '<div data-hm-node="continuation-identifier-end" class="continuation-identifier" title="续打结束"><input readonly placeholder="' + endPlaceholder + '"/><input></div>';
+                var isInTable = window._tempContinuationInTable;
+                if (isInTable) {
+                    delete window._tempContinuationInTable;
+                    // 在表格中：创建一个特殊的表格行来包含续打标识
+                    // 获取表格的列数
+                    var $tr = $insertPoint;
+                    var colCount = $tr.find('td, th').length;
+                    if (colCount === 0) {
+                        // 如果当前行没有单元格，尝试从表格获取列数
+                        var $table = $tr.closest('table');
+                        var $firstRow = $table.find('tr').first();
+                        colCount = $firstRow.find('td, th').length || 1;
+                    }
+                    // 创建一个包含续打标识的表格行
+                    hrLabel = '<tr data-hm-continuation-row="true"><td colspan="' + colCount + '" style="padding:0;border:none;"><div data-hm-node="continuation-identifier-end" class="continuation-identifier" title="续打结束"><input readonly placeholder="' + endPlaceholder + '"/><input></div></td></tr>';
+                } else {
+                    hrLabel = '<div data-hm-node="continuation-identifier-end" class="continuation-identifier" title="续打结束"><input readonly placeholder="' + endPlaceholder + '"/><input></div>';
+                }
 
-                $(settingUpLabel).after(hrLabel);
+                // 在当前位置插入
+                $insertPoint.after(hrLabel);
 
                 endLabel = $(body.$).find("[data-hm-node='continuation-identifier-end']");
-                if (startLabel && startLabel.length > 0 && startLabel.offset().top >= endLabel.offset().top) {
+                if (startLabel && startLabel.length > 0 && endLabel.length > 0 && startLabel.offset().top >= endLabel.offset().top) {
                     startLabel.remove();
                 }
             }

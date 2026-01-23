@@ -984,3 +984,102 @@ HMEditor.downloadPdf(function(pdfBlob) {
 2. **文件大小**：可以通过 `pdfBlob.size` 属性获取PDF文件的大小（字节数）。
 3. **文件类型**：PDF Blob对象的 `type` 属性值为 `'application/pdf'`。
 4. **异步处理**：PDF生成是异步操作，回调函数会在PDF生成完成后被调用。
+
+### 18. focusElement 方法
+
+该方法用于定位到指定的病历或元素位置，支持滚动定位、光标定位和高亮效果：
+
+```javascript
+/**
+ * 定位到病历或元素
+ * @param {String} docCode 病历ID（必填）
+ * @param {String} eleCode 元素ID（可选）
+ * @param {String} eleContent 元素内容（可选）
+ * @returns {Boolean} 是否成功定位
+ */
+```
+
+#### 参数详细说明
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| docCode | String | 是 | 病历ID，用于定位目标病历 |
+| eleCode | String | 否 | 元素ID（data-hm-code 或 data-hm-name），用于定位病历中的具体元素 |
+| eleContent | String | 否 | 元素内容，用于在元素内容中定位到指定文本位置 |
+
+#### 使用示例
+
+```javascript
+// 示例1：只定位到病历
+HMEditor.focusElement('DOC001');
+
+// 示例2：定位到病历中的元素
+HMEditor.focusElement('DOC001', 'ELEMENT001');
+
+// 示例3：定位到元素内容中的指定文本
+HMEditor.focusElement('DOC001', 'ELEMENT001', '睡眠障碍');
+```
+
+#### 功能说明
+
+- **情况1**：只传 `docCode`，滚动条定位到病历位置，并添加高亮效果
+- **情况2**：传 `docCode` + `eleCode`，滚动条定位到元素位置，如果是文本元素（newtextbox）则光标定位到元素内容的开头，并添加高亮效果
+- **情况3**：传 `docCode` + `eleCode` + `eleContent`，光标定位到元素内容中指定文本的开头位置，并添加高亮效果
+
+#### 注意事项
+
+1. **高亮效果**：定位成功后会添加高亮效果，3秒后自动消失
+2. **元素查找**：优先通过 `data-hm-code` 属性查找，如果找不到则通过 `data-hm-name` 属性查找
+3. **文本元素**：对于文本元素（newtextbox），会自动定位到内部的 `.new-textbox-content` 子元素
+4. **返回值**：返回 Boolean 类型，表示是否成功定位
+
+### 23. insertHtml 方法
+
+该方法用于插入HTML内容，支持在光标处插入或在指定元素后插入：
+
+```javascript
+/**
+ * 插入HTML内容
+ * @param {String} htmlContent 要插入的HTML内容
+ * @param {String} posTag 定位标记（可选），如果提供，将通过 data-hm-code=posTag 或 data-hm-name=posTag 查找元素，在元素后插入HTML，完成后光标定位到插入HTML之前
+ * @returns {Boolean} 是否成功插入
+ */
+```
+
+#### 参数详细说明
+
+- `htmlContent`: 要插入的HTML内容，必填
+- `posTag`: 定位标记，可选。如果提供，将通过 `data-hm-code=posTag` 或 `data-hm-name=posTag` 查找元素，在元素后插入HTML
+
+#### 功能说明
+
+1. **在光标处插入**：当不提供 `posTag` 参数时，HTML内容会插入到当前光标位置
+   - 如果光标在数据元内部，HTML会自动转换为纯文本插入
+   - 如果光标在数据元外部，正常插入HTML内容
+
+2. **在指定元素后插入**：当提供 `posTag` 参数时，会查找对应的元素并在元素后插入HTML
+   - 首先通过 `data-hm-code=posTag` 查找元素
+   - 如果未找到，则通过 `data-hm-name=posTag` 查找元素
+   - 插入完成后，光标会定位到插入HTML之前（即元素后）
+
+#### 使用示例
+
+```javascript
+// 示例1：在光标处插入HTML
+HMEditor.insertHtml('<p>这是一段HTML内容</p>');
+
+// 示例2：在指定元素后插入HTML
+HMEditor.insertHtml('<p>插入的内容</p>', 'ELEMENT_CODE_001');
+
+// 示例3：插入带样式的HTML
+HMEditor.insertHtml('<div style="color: red;">红色文字</div>');
+
+// 示例4：插入复杂HTML结构
+HMEditor.insertHtml('<ul><li>项目1</li><li>项目2</li></ul>');
+```
+
+#### 注意事项
+
+- 如果光标在数据元（如 `newtextbox`、`timebox` 等）内部，HTML内容会自动转换为纯文本插入，以保持数据元的完整性
+- 如果未找到指定的定位元素（`posTag`），方法会返回 `false` 并在控制台输出警告信息
+- 插入HTML后会自动触发 `togglePlaceHolder` 事件，确保占位符状态正确更新
