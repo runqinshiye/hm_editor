@@ -77,6 +77,14 @@ legend {
     height: 22px;
 }
 
+/* 备注多行输入框：覆盖通用高度，保证多行可见 */
+#remarkConfig textarea.form-control {
+    height: auto;
+    min-height: 100px;
+    padding: 6px 8px;
+    resize: vertical;
+}
+
 .row.group::after {
     width: 100%;
     height: 1px;

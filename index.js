@@ -1,4 +1,5 @@
 var express = require('express');
+var path = require('path');
 var app = express();
 var serveIndex = require('serve-index');
 var editor = require('./src/editor.js');
@@ -20,6 +21,17 @@ app.use(function(req, res, next) {
 	}
 	next();
 });
+
+// 显式挂载 demo 目录：本地/完整部署用 hmEditor/demo，Docker 构建用 editorDist/demo（grunt copy:demo 产出）
+var fs = require('fs');
+var demoDir = path.join(__dirname, 'hmEditor', 'demo');
+if (!fs.existsSync(demoDir)) {
+	demoDir = path.join(__dirname, 'editorDist', 'demo');
+}
+if (fs.existsSync(demoDir)) {
+	app.use('/demo', express.static(demoDir, { index: ['index.html'] }));
+	app.use('/hmEditor/demo', express.static(demoDir, { index: ['index.html'] }));
+}
 
 // 允许跨域请求
 // app.all('*', function (req, res, next) {
@@ -75,7 +87,9 @@ var server = app.listen(process.env.PORT||3071,'0.0.0.0',function(){
 	
 	console.log('📄 Demo 页面地址：');
 	console.log('   ' + baseUrl + '/demo/index.html');
+	console.log('   ' + baseUrl + '/demo/ai-draft-demo.html');
 	console.log('或 ' + baseUrl + '/hmEditor/demo/index.html');
+	console.log('   ' + baseUrl + '/hmEditor/demo/ai-draft-demo.html');
 	console.log('');
 	
 	console.log('📦 JS 引用方式：');

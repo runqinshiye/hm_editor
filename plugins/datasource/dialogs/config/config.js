@@ -180,6 +180,7 @@ function changeTypeInit(val,texttype) {
     initDsType(val);
     $('.row.text,.row.searchbox,.row.dropdown,.row.option,.row.barcode,.row.qrcode').hide();
     $('.row .ds-code').hide();
+    $('.row .hidelabelcode-only').hide();
 
     // 标题类数据元不显示按钮
     var allowModify = (window.HMConfig && window.HMConfig.allowModifyDatasource) || 
@@ -302,6 +303,7 @@ function changeTypeInit(val,texttype) {
     if (val == 'radiobox' || val == 'checkbox') {
         $('.row.option').show();
         $('.row .check').show();
+        $('.row .hidelabelcode-only').show();
         if (val == 'radiobox') {
             $('.row .radio').show();
         }else{
@@ -561,6 +563,10 @@ function setConfig(data) {
     }
     // 设置分割样式
     setSeparator();
+    // 备注（绑定到 data-hm-remark）
+    $('textarea[_type="data-hm-remark"]').val(data['data-hm-remark'] || '');
+    // 单选/多选：不显示编码（默认不勾选）
+    $('input[_type="_hidelabelcode"]').prop('checked', data['_hidelabelcode'] === 'true');
     function setSeparator(){
         var separatorType = data['_separator_type'] || 'space';
         var separatorValue = data['_separator_value'] || '&nbsp;';
@@ -627,6 +633,8 @@ function config() {
     var dateObj = parseEles($('.row>input[type=datetime-local]'));
     // 输入
     var numObj = parseEles($('.row>input[type=number]'));
+    // 备注
+    var remarkObj = parseEles($('.row>textarea'));
 
     // 级联设置
     var relevanceArr = relevanceFun($('.relevanceItems'));
@@ -706,7 +714,12 @@ function config() {
         return arr;
     }
 
-    Object.assign(d, inputObj, checkboxObj, selObj,dateObj,numObj, _dsObj, relevanceObj);
+    Object.assign(d, inputObj, checkboxObj, selObj, dateObj, numObj, remarkObj, _dsObj, relevanceObj);
+    // 单选/多选时始终写入「不显示编码」，未勾选为空
+    var nodeType = d['data-hm-node'];
+    if (nodeType === 'radiobox' || nodeType === 'checkbox') {
+        d['_hidelabelcode'] = $('input[_type="_hidelabelcode"]').is(':checked') ? 'true' : '';
+    }
     eatUnvalid(d);
     return d;
 
@@ -755,9 +768,9 @@ function config() {
         if (texttype != '二维码') {
             remove(['_qrcode_width', '_qrcode_height', '_qrcode_error_level', '_qrcode_text_position']);
         }
-        // 分割样式只对单选和多选类型有效
+        // 分割样式、不显示编码只对单选和多选类型有效
         if (nodeType != 'checkbox' && nodeType != 'radiobox') {
-            remove(['_separator_type', '_separator_value']);
+            remove(['_separator_type', '_separator_value', '_hidelabelcode']);
         }
         function remove(keys) {
             for (var i = 0; i < keys.length; i++) {

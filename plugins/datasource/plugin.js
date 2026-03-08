@@ -1,4 +1,4 @@
-﻿CKEDITOR.plugins.add('datasource', {
+CKEDITOR.plugins.add('datasource', {
 
     requires: 'dialog',
     icons: 'datasource', // %REMOVE_LINE_CORE%

@@ -209,46 +209,49 @@ commonHM.component['documentModel'].fn({
         }
     },
     /**
-     * 设置单个数据元元素的只读状态
-     * @param {jQuery} $element 数据元元素
-     * @param {Boolean} flag true:只读 false:可编辑
+     * 设置单个数据元元素的只读/可编辑状态
+     * 流程：① 被禁用元素直接跳过 ② 根据 flag 增删简洁模式 class ③ 按 data-hm-node 类型设置 pointer-events 或 contenteditable。
+     * 只读时用 pointer-events:none 或 contenteditable:false 禁止交互；可编辑时恢复为 auto/true。
+     * @param {jQuery} $element 数据元元素（带 data-hm-node 的节点）
+     * @param {Boolean} flag true=只读，false=可编辑
      */
     setElementReadOnlyState: function ($element, flag) {
         var nodeType = $element.attr('data-hm-node');
-        var evtState = flag ? 'none' : 'auto'; // pointer-events
-        var editStr = flag ? 'false' : 'true'; // contenteditable
+        var evtState = flag ? 'none' : 'auto';   // pointer-events：只读禁点击，可编辑恢复
+        var editStr = flag ? 'false' : 'true';  // contenteditable：只读不可编辑，可编辑可输入
 
-        // 如果是被禁用的元素，跳过处理
+        // 被禁用（_isdisabled=true）的元素不改变只读状态，直接返回
         if ($element.attr('_isdisabled') === 'true') {
             return;
         }
-        // 设置简洁模式
+
+        // 只读时进入简洁模式：当前元素及指定特征子节点加 concise-model；可编辑时移除该类
         if (flag) {
-             var features = '._printHide,._paragraphHide,.hide_class,' +
+            var features = '._printHide,._paragraphHide,.hide_class,' +
                 '.new-textbox,[data-hm-node],[_placeholderText],ins,.cke_page_split_mark,.continuation-identifier';
             $element.addClass('concise-model');
-            $element.find(features).addClass('concise-model'); 
+            $element.find(features).addClass('concise-model');
         } else {
             $element.removeClass('concise-model');
             $element.find('.concise-model').removeClass('concise-model');
         }
-        // 根据不同的节点类型设置只读状态
+
+        // 按 data-hm-node 类型分别设置：控件类用 pointer-events，文本类用 contenteditable
         switch (nodeType) {
             case 'timebox':
             case 'dropbox':
             case 'checkbox':
             case 'radiobox':
             case 'searchbox':
-                // 设置pointer-events来控制交互
+                // 时间/下拉/复选/单选/搜索：仅用 pointer-events 控制点击，不改 contenteditable
                 $element.css('pointer-events', evtState);
                 break;
             case 'newtextbox':
-                // 新文本框需要特殊处理
+                // 新文本框：设置自身 pointer-events，并对 .new-textbox-content 及内部 span/font 设置 contenteditable（排除 expressionbox）
                 $element.css('pointer-events', evtState);
                 var $content = $element.find(".new-textbox-content");
                 if ($content.length > 0) {
                     $content.attr("contenteditable", editStr);
-                    // 处理内部元素
                     var spans = $content.find('span:not([data-hm-node="expressionbox"])');
                     var fonts = $content.find('font');
                     if (spans.length > 0) {
@@ -260,19 +263,19 @@ commonHM.component['documentModel'].fn({
                 }
                 break;
             case 'textboxwidget':
-                // 文本框组件
+                // 文本控件：直接设置 contenteditable
                 $element.attr("contenteditable", editStr);
                 break;
             case 'cellbox':
-                // 表格单元格
+                // 表格单元格：直接设置 contenteditable
                 $element.attr("contenteditable", editStr);
                 break;
             case 'expressionbox':
-                // 医学表达式框
+                // 医学表达式框：仅用 pointer-events，不改为 contenteditable
                 $element.css('pointer-events', evtState);
                 break;
             default:
-                // 其他类型的数据元，通用处理
+                // 其他类型：若已有 contenteditable 属性则改之，否则用 pointer-events
                 if ($element.attr('contenteditable') !== undefined) {
                     $element.attr("contenteditable", editStr);
                 } else {
@@ -379,13 +382,12 @@ commonHM.component['documentModel'].fn({
         var _t = this;
         var $body = $(_t.editor.document.getBody().$);
 
-        // 参数校验
         if (!tableCode) {
             console.warn('tableRow' + permissionType + ': tableCode 参数不能为空');
             return;
         }
 
-        // 根据tableCode查找表格
+        // 查找列表类表格：优先按 data-hm-table-code，其次按 data-hm-datatable
         var $table = $body.find('table[data-hm-table-code="' + tableCode + '"][data-hm-table-type="list"]');
         if ($table.length === 0) {
             $table = $body.find('table[data-hm-datatable="' + tableCode + '"][data-hm-table-type="list"]');
@@ -402,6 +404,7 @@ commonHM.component['documentModel'].fn({
             return;
         }
 
+        // evaluate-type：col=竖向（一行一条记录），row=横向（一列一条记录）；解析行索引后按类型分发
         var evaluateType = $table.attr('evaluate-type') || 'col';
         var rowIndexArray = _t._parseRowIndex(rowIndex);
 

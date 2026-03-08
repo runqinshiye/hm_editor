@@ -57,7 +57,7 @@
 		var bodyElement = editor.document.getBody();
 		
 		// 获取所有数据元
-		var allDataElements = bodyElement.find('[data-hm-node]');
+		var allDataElements = bodyElement.find('[data-hm-node][data-hm-code]');
 		
 		// 获取页眉（只取第一份页眉表格，不处理嵌套）
 		var headerTables = bodyElement.find('table[_paperheader="true"]');
@@ -136,7 +136,7 @@
 			var isNestedElement = false;
 			var checkParent = dataElement.getParent();
 			while (checkParent && !isInHeader && !isInFooter) {
-				if (checkParent.getAttribute && checkParent.getAttribute('data-hm-node') && 
+				if (checkParent.getAttribute && checkParent.getAttribute('data-hm-node') &&  checkParent.getAttribute('data-hm-code') &&
 					checkParent.getAttribute('data-hm-node') !== 'labelbox') {
 					isNestedElement = true;
 					break;
@@ -145,6 +145,13 @@
 					break;
 				}
 				checkParent = checkParent.getParent();
+				// 遇到 .emrWidget-content 容器则停止向上查找，不视为数据元父级
+				if (checkParent) {
+					var className = checkParent.getAttribute && checkParent.getAttribute('class');
+					if (className && className.indexOf('emrWidget-content') !== -1) {
+						break;
+					}
+				}
 			}
 			
 			// 如果不在页眉页脚中，且不是嵌套的子数据元，则属于主体顶层数据元
@@ -319,10 +326,17 @@
 	function getDataElementName(element) {
 		var name = '';
 		
-		// 优先从data-hm-name属性获取
+		// 优先从 data-hm-name 属性获取
 		name = element.getAttribute('data-hm-name');
 		if (name && name.trim() !== '') {
 			return name.trim();
+		}
+		
+		// 没有 data-hm-name 则取 _placeholder
+		name = element.getAttribute('_placeholder');
+		if (name && name.trim() !== '' && name.trim() !== '-') {
+			name = name.trim();
+			return name.length > 10 ? name.substring(0, 10) : name;
 		}
 		
 		return '';

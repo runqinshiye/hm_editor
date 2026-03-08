@@ -10,15 +10,23 @@ commonHM.component['documentModel'].fn({
         copyWidget.find('style').each(function () {
             $(this).remove();
         });
+        // 移除 AI 生成未保留内容（.r-model-gen），获取的 text 不包含未确认的草稿
+        copyWidget.find('.r-model-gen').remove();
+        copyWidget.find('[data-attach-ai]').removeAttr('data-attach-ai');
         return copyWidget.text();
     },
     /**
-     * 获取html内容
+     * 获取文档的 HTML 内容（用于保存/导出）
+     * 对当前编辑区域做清洗后，输出带 body 标签的完整 HTML 字符串。
+     * 流程：① 清除 AI 生成备注与占位 ② 清除质控提示 ③ 从 body/widget 提取纸张、元数据、样式 ④ 恢复页眉页脚显示 ⑤ 拼接 body 属性与内容。
+     * @param {jQuery|Element} widget 文档内容所在容器（编辑区域节点）
+     * @returns {string} 带 <body> 标签的 HTML 字符串，含 data-hm-papersize、meta_json、style、class 等属性
      */
     getDocumentHtml: function (widget) {
         var _t = this;
         var $body = _t.editor.document.getBody();
-        // 清除AI助手文案 
+
+        // 清除 AI 助手生成备注：对 generate=1 且含 .r-model-gen-remark 的文本框，去掉备注并改为占位展示
         $(widget).find('.new-textbox-content').each(function (i, ele) {
             if ($(ele).attr('generate') == '1' && $(ele).find('.r-model-gen-remark').length > 0) {
                 $(ele).find('.r-model-gen-remark').remove();
@@ -30,33 +38,45 @@ commonHM.component['documentModel'].fn({
                 }
             }
         });
-        // 清除 质控
+
+        // 清除质控相关节点：删除质控段落与质控内联标记
         $(widget).find('.doc-warn-p').each(function () {
             $(this).remove();
         });
         $(widget).find('.doc-warn-txt').each(function (i, ele) {
             new CKEDITOR.dom.element(ele).remove(true);
         });
+
+        // 从编辑区 body 或 widget 上提取文档属性（纸张、元数据、样式）
         var paperSize = $body.getAttribute('data-hm-papersize');
         var meta_json = $body.getAttribute('meta_json');
-        //提取widget中的文档属性
         var papersize = paperSize || $(widget).attr('data-hm-subpapersize');
         var meta_json = meta_json || $(widget).attr('meta_json');
         var style = $(widget).attr('data-hm-substyle');
-        var $recordContent = $('<body></body>').append($(widget).html());
-        //将隐藏的页眉、页脚恢复
+
+        // 用克隆构建 HTML，并移除 AI 生成未保留内容（.r-model-gen），获取的 html 不包含未确认的草稿
+        var $widgetForHtml = $(widget).clone(true);
+        $widgetForHtml.find('.r-model-gen').remove();
+        $widgetForHtml.find('[data-attach-ai]').removeAttr('data-attach-ai');
+        var $recordContent = $('<body></body>').append($widgetForHtml.html());
+
+        // 将隐藏的页眉、页脚表格恢复显示（去掉 display 隐藏）
         $recordContent.find("table[_paperheader]").each(function () {
             $(this).css("display", "");
         });
         $recordContent.find("table[_paperfooter]").each(function () {
             $(this).css("display", "");
         });
+
+        // 若存在切换模式或不可编辑块，则 body 增加 class switchModel
         var _class = '';
         if ($($body.$).find('.switchModel').length > 0 || $($body.$).find('[_contenteditable="false"]').length > 0) {
             _class = 'switchModel';
         }
+
         var widgetContent = '<body data-hm-papersize="' + (papersize || "") + '" meta_json="' + (meta_json || "") + '" style="' + (style || "") + '" class="' + (_class || "") + '">' + $recordContent[0].innerHTML + '</body>';
-        //病程是否使用新样式
+
+        // 病程若使用新样式，在 body 上增加 newstyle 属性
         var newstyle = $(widget).attr('data-hm-subnewstyle');
         if (newstyle) {
             widgetContent = '<body data-hm-papersize="' + (papersize || "") + '" meta_json="' + (meta_json || "") + '" style="' + (style || "") + '" newstyle="' + (newstyle || "") + '" >' + $recordContent[0].innerHTML + '</body>';
@@ -87,6 +107,9 @@ commonHM.component['documentModel'].fn({
         var _t = this;
         var $body = $(widget).clone(true); // 克隆当前文档内容
         $body.find('del.hm_revise_del').remove(); // 删除修订痕迹
+        // 移除 AI 草稿节点后再获取数据元，使返回内容不包含未确认的 AI 生成内容
+        $body.find('.r-model-gen').remove();
+        $body.find('[data-attach-ai]').removeAttr('data-attach-ai');
         //只查找有名称的数据元，无名称的只能作为内嵌类型
         var sourceObj = _t.getSourceData($body);
         return sourceObj;
@@ -135,17 +158,21 @@ commonHM.component['documentModel'].fn({
     },
 
     /**
-     * 处理护理表单数据
-     * @param {*} $body 文档内容
-     * @param {*} sourceObj 数据源对象
+     * 处理列表类表格数据（护理表单等 list 型表格）
+     * 遍历文档中所有 data-hm-table-type="list" 的表格，将每张表转为 { keyCode, keyName, keyId, keyValue }，
+     * keyValue 为二维数组：每行一个数组，每格一个数据元对象。
+     * @param {jQuery} $body 文档内容（body 的 jQuery 对象）
+     * @param {Object} sourceObj 数据源对象，结果会 push 到 sourceObj.data
      */
     handleTableListData: function ($body, sourceObj) {
         var _t = this;
+        // 仅处理列表型表格
         var $tablelist = $body.find('table[data-hm-table-type="list"]');
 
         if (!$tablelist.length) return;
 
         $tablelist.each(function () {
+            // 单张表：表编码、表名、表 id、行数据数组
             var tableData = {
                 keyCode: $(this).attr('data-hm-table-code') || '',
                 keyName: $(this).attr('data-hm-datatable') || '',
@@ -155,6 +182,7 @@ commonHM.component['documentModel'].fn({
             var $rows = $(this).find('tbody tr');
 
             $rows.each(function () {
+                // 当前行：收集该行内所有带 data-hm-node 的单元格
                 var rowData = [];
                 var $tds = $(this).find('[data-hm-node]');
 
@@ -165,6 +193,7 @@ commonHM.component['documentModel'].fn({
                     }
                 });
 
+                // 仅当该行至少有一个有效数据元时才加入表数据
                 if (rowData.length) {
                     tableData.keyValue.push(rowData);
                 }
@@ -347,9 +376,10 @@ commonHM.component['documentModel'].fn({
             keyName: $ele.attr('data-hm-name') || '',
             keyValue: ''
         };
+        // 按数据元节点类型分别取值，填充 spanObj.keyValue
         switch (type) {
             case 'newtextbox':
-                // 增加嵌套逻辑
+                // 文本框：有嵌套数据元则走嵌套逻辑，否则走普通文本框取值
                 if ($ele.find('[data-hm-name]').length > 0) {
                     spanObj = _t.handleNestingTextbox(ele, spanObj);
                 } else {
@@ -357,32 +387,41 @@ commonHM.component['documentModel'].fn({
                 }
                 break;
             case 'dropbox':
+                // 下拉框：由 handleDropbox 取选中项值
                 spanObj = _t.handleDropbox(ele, spanObj);
                 break;
             case 'cellbox':
+                // 单元格：非占位时取文本，并去除零宽字符
                 var value = !$ele.attr('_placeholdertext') ? $ele.text() : '';
                 spanObj.keyValue = value ? value.replace(/\u200B/g, '') : '';
                 break;
             case 'textboxwidget':
+                // 文本控件：同单元格，非占位时取文本并去零宽字符
                 var value = !$ele.attr('_placeholdertext') ? $ele.text() : '';
                 spanObj.keyValue = value ? value.replace(/\u200B/g, '') : '';
                 break;
             case 'timebox':
+                // 时间框：由 handleTimeBox 取时间值
                 spanObj = _t.handleTimeBox(ele, spanObj);
                 break;
             case 'expressionbox':
+                // 表达式框：非占位时取 _expressionvalue 属性值
                 spanObj.keyValue = !$ele.attr('_placeholdertext') ? $ele.attr('_expressionvalue') : '';
                 break;
             case 'searchbox':
+                // 搜索框：由 handleSearchbox 取选中/输入值
                 spanObj = _t.handleSearchbox(ele, spanObj);
                 break;
             case 'radiobox':
+                // 单选：由 handleRadiobox 取选中项，需传入 body 做上下文
                 spanObj = _t.handleRadiobox(ele, spanObj, $ele.closest('body'));
                 break;
             case 'checkbox':
+                // 复选：由 handleCheckbox 取勾选项，需传入 body 做上下文
                 spanObj = _t.handleCheckbox(ele, spanObj, $ele.closest('body'));
                 break;
             default:
+                // 未知节点类型，不参与保存
                 return null;
         }
 
@@ -606,24 +645,27 @@ commonHM.component['documentModel'].fn({
      */
     handleDropbox: function (ele, spanObj) {
         var $datasource = $(ele);
+        // 选项列表，格式：显示名(编码)#显示名(编码)，如 "男(1)#女(2)"
         var items = $datasource.attr('data-hm-items');
         var code = "";
+        // 当前展示文案：非占位时取节点文本，并去掉零宽字符、全角空格
         var value = !$datasource.attr('_placeholdertext') ? $datasource.text() : '';
         value = value ? value.replace(/\u200B/g, '').replace(/\u3000/g, '') : '';
         if (items != null && items.trim() != '') {
             var itemList = items.split("#");
             var selectType = $datasource.attr('_selectType');
-            var jointsymbol = $datasource.attr('_jointsymbol');
+            var jointsymbol = $datasource.attr('_jointsymbol'); // 多选时的拼接符，如顿号、逗号
             if (selectType == '多选') {
                 value = (value || '').replace(/\s*/, '');
-                var arr = value.split(jointsymbol);
+                var arr = value.split(jointsymbol); // 按拼接符拆成多个展示项
                 var codeArr = [];
                 var valueArr = [];
+                // 逐项与 data-hm-items 中「显示名(编码)」匹配，得到 code 与 value 数组
                 for (var k = 0; k < arr.length; k++) {
                     var element = arr[k];
                     for (var i = 0; i < itemList.length; i++) {
                         var item = itemList[i];
-                        var matches = item.match(/\s*(.+)\((.*?)\)\s*$/);
+                        var matches = item.match(/\s*(.+)\((.*?)\)\s*$/); // 解析 "显示名(编码)"
                         if (matches && matches.length == 3 && element == matches[1]) {
                             code = matches[1];
                             value = matches[2];
@@ -639,6 +681,7 @@ commonHM.component['documentModel'].fn({
                 code = codeArr.join(jointsymbol);
                 value = valueArr.join(jointsymbol);
             } else {
+                // 单选：在 itemList 中找到展示文案对应的「显示名(编码)」，取出 code 与 value
                 for (var j = 0; j < itemList.length; j++) {
                     var item = itemList[j];
                     var matches = item.match(/\s*(.+)\((.*?)\)\s*$/);
@@ -655,7 +698,6 @@ commonHM.component['documentModel'].fn({
             code: code,
             value: value
         };
-        // spanObj.keyCode = code;
         return spanObj;
     },
     // 处理时间取值
@@ -750,24 +792,7 @@ commonHM.component['documentModel'].fn({
             code: codeList.length > 0 ? codeList : "",
             value: checkList.length > 0 ? checkList : ""
         };
-        //老结构
-        if (checksources.length == 0) {
-            checksources = $body.find('[data-hm-node="checkbox"][data-hm-name="' + name + '"]');
-            for (var j = 0; j < checksources.length; j++) {
-                var checksource = checksources[j];
-                var nameValue = checksource.getAttribute('data-hm-itemname');
-                nameValue = nameValue ? nameValue.replace(/\u200B/g, '') : '';
-                if (checksource.getAttribute('_selected')) {
-                    checkList.push(nameValue);
-                }
-            }
-            // spanObj.keyCode = code;
-            // spanObj.keyValue = checkList;
-            spanObj.keyValue = {
-                code: code,
-                value: checkList
-            };
-        }
+        
         return spanObj;
     },
     /**
@@ -832,12 +857,12 @@ commonHM.component['documentModel'].fn({
      */
     getContent: function (params) {
         var _t = this;
-        var result = [];
-        var widgetList = _t.getWidgetList(params.code);
+        var result = []; // 汇总各文档的 html / text / data，按 params.flag 填充
+        var widgetList = _t.getWidgetList(params.code); // 根据 code 取文档区域列表，code 为空则全部
         if (widgetList.length) {
             for (var i = 0; i < widgetList.length; i++) {
                 var widget = widgetList[i];
-                _t.getOneContentResult(widget, params, result);
+                _t.getOneContentResult(widget, params, result); // 单个文档的 html/text/data 追加到 result
             }
         } else {
             alert('没有找到有效的文档内容');
@@ -855,22 +880,21 @@ commonHM.component['documentModel'].fn({
         var _t = this;
         var _html = _t.getDocumentHtml(widget);
         var _text = _t.getDocumentText(widget);
-        var _sourceData = _t.getContentData(widget); // 所有数据
+        var _sourceData = _t.getContentData(widget); // 当前文档的全部数据元（含普通数据元与列表型表格）
 
-        // 优化逻辑：如果params.code不为空且keyList为空或只包含空字符串，则获取该文档的所有数据元
+        // 按 keyList 决定数据元范围：code 有值且 keyList 为空时取该文档全部数据元，否则按 keyList 过滤
         var _data;
         var isEmptyKeyList = !params.keyList || params.keyList.length === 0 ||
             (params.keyList.length === 1 && params.keyList[0] === '');
 
         if (params.code && isEmptyKeyList) {
-            // 当code不为空且keyList为空或只包含空字符串时，获取该文档的所有数据元
             _data = _sourceData.data;
         } else {
-            // 其他情况使用原有的过滤逻辑
             _data = _t.getFilterData(params.keyList || [], _sourceData.data);
         }
 
-        var _id = $(widget).attr('data-hm-widgetid') || '';
+        var _id = $(widget).attr('data-hm-widgetid') || ''; // 文档区域 id，无 code 时用此作为标识
+        // 未传 code 且未传 flag 时返回完整内容（data + html + text），否则按 flag 只返回对应类型 
         if (!params.code && !params.flag) {
             result.push({
                 code: params.code || _id,
@@ -879,21 +903,13 @@ commonHM.component['documentModel'].fn({
                 text: _text
             });
         } else {
+            // 按 flag 只返回对应类型：1=仅 html，2=仅 text，3=仅 data，其他=全部
             if (params.flag == 1) {
-                result.push({
-                    code: params.code || _id,
-                    html: _html
-                });
+                result.push({ code: params.code || _id, html: _html });
             } else if (params.flag == 2) {
-                result.push({
-                    code: params.code || _id,
-                    text: _text
-                });
+                result.push({ code: params.code || _id, text: _text });
             } else if (params.flag == 3) {
-                result.push({
-                    code: params.code || _id,
-                    data: _data
-                });
+                result.push({ code: params.code || _id, data: _data });
             } else {
                 result.push({
                     code: params.code || _id,
@@ -903,9 +919,9 @@ commonHM.component['documentModel'].fn({
                 });
             }
         }
-        // 如果存在护理表单数据,则添加到result中
+        // 若当前文档包含护理表单（list 型表格），将护理数据挂到本次 push 的项上
         if ($(widget).find('[data-hm-table-type="list"]').length > 0) {
-            result[0].nursingData = _sourceData.nursingData;
+            result[result.length - 1].nursingData = _sourceData.nursingData;
         }
         return result;
     }

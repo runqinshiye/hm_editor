@@ -1012,6 +1012,22 @@
 		if ( newCellColSpan == 1 )
 			newCell.removeAttribute( 'colSpan' );
 
+		// 水平合并过的单元格垂直拆分时，按列数比例分配宽度，与合并时的宽度累加逻辑一致
+		if ( colSpan > 1 ) {
+			var cellWidthStr = cell.$.style.width || '';
+			if ( cellWidthStr ) {
+				var usePercent = cellWidthStr.indexOf( '%' ) > -1;
+				var widthNum = parseFloat( cellWidthStr );
+				if ( !isNaN( widthNum ) && widthNum > 0 ) {
+					var unit = usePercent ? '%' : 'px';
+					var firstWidth = ( widthNum * newColSpan / colSpan );
+					var secondWidth = ( widthNum * newCellColSpan / colSpan );
+					cell.setStyle( 'width', firstWidth + unit );
+					newCell.setStyle( 'width', secondWidth + unit );
+				}
+			}
+		}
+
 		return newCell;
 	}
 

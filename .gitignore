@@ -41,6 +41,9 @@ build/Release
 
 # Dependency directories
 node_modules/
+node_modules_4/
+node_modules_5/
+
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
@@ -123,7 +126,7 @@ yarn.lock
 mqsource
 
 # cursor
-.cursor
+# .cursor
 .specstory
 editorDist
 /*.cursorindexingignore

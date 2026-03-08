@@ -78,6 +78,7 @@
                         <div class="center-btn-wrapper">
                             <div class="center-btn-container">
                                 <button id="btnInsertDoc">插入文档</button>
+                                <button id="btnDeleteDoc">删除文档</button>
                                 <button id="btnSetData">设置数据</button>
                                 <button id="btnInsertDataAtCursor">光标插入内容</button>
                                 <button id="btnInsertImageAtCursor">光标插入图片</button>
@@ -215,6 +216,24 @@
                 </div>
             </div>
 
+              <!-- 删除文档弹框 -->
+              <div class="dialogBox deleteDocDialog">
+                <h3>演示用 - 删除文档</h3>
+                <div class="input-group">
+                    <label>文档编号：</label>
+                    <textarea id="deleteDocCode" placeholder="请输入要删除的文档编号，支持单个值或JSON数组格式，如：&quot;DOC_001&quot; 或 [&quot;DOC_001&quot;, &quot;DOC_002&quot;]" rows="4"></textarea>
+                </div>
+                <div class="help-text">
+                    使用说明：<br>
+                    1. 单个文档：直接输入文档编号，如 "DOC_001"<br>
+                    2. 多个文档：输入JSON数组格式，如 ["DOC_001", "DOC_002", "DOC_003"]
+                </div>
+                <div>
+                    <button id="btnConfirmDeleteDoc" class="dialog-btn btn-primary">确定</button>
+                    <button id="btnCancelDeleteDoc" class="dialog-btn">取消</button>
+                </div>
+            </div>
+            
             <!-- 插入数据元_输入框 -->
             <div class="dialogBox insertMetaDataInfo">
                 <h3>演示用 - 输入数据元参数</h3>
@@ -307,22 +326,22 @@
             <div class="dialogBox focusElementDialog">
                 <h3>定位到病历或元素</h3>
                 <div class="input-group">
-                    <label>病历ID（必填）：</label>
-                    <input type="text" id="focusDocCode" placeholder="请输入病历ID">
+                    <label>文档编码(必填)：</label>
+                    <input type="text" id="focusDocCode" placeholder="请输入文档编码">
                 </div>
                 <div class="input-group">
-                    <label>元素ID（可选）：</label>
-                    <input type="text" id="focusEleCode" placeholder="请输入元素ID">
+                    <label>数据元编码或<br>名称(可选)：</label>
+                    <input type="text" id="focusEleCode" placeholder="请输入数据元编码或名称">
                 </div>
                 <div class="input-group">
-                    <label>元素内容（可选）：</label>
-                    <input type="text" id="focusEleContent" placeholder="请输入元素内容">
+                    <label>数据元文本内容<br>或trace_id(可选)：</label>
+                    <input type="text" id="focusEleContent" placeholder="请输入数据元文本内容或 trace_id">
                 </div>
                 <div class="help-text">
                     使用说明：<br>
-                    1. 只有病历ID：滚动条定位到病历<br>
-                    2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头<br>
-                    3. 病历+元素+元素内容：光标定位到元素内容的开头
+                    1. 只有文档编码：滚动条定位到文档<br>
+                    2. 文档编码+数据元：滚动条定位到数据元，如果是文本则光标定位到数据元内容的开头<br>
+                    3. 文档编码+数据元+文本/trace_id：传 trace_id 定位到该节点，传文本则定位到该文本位置
                 </div>
                 <div>
                     <button id="btnConfirmFocusElement" class="dialog-btn btn-primary">确定</button>

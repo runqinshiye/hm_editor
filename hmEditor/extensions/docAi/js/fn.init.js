@@ -200,7 +200,7 @@ commonHM.component['hmAi'].fn({
             _t.composer.ignoreWarn(ele.attr('uucode'), 2);
         }).on('click', '.r-model-gen-remark', function () {
             _t.utils.focusInputFirst(this);
-        }).on('click', '.r-model-gen-text', function () {
+        }).on('click', '.r-model-gen', function () {
             _t.generator.reOpenPopupProgress(this);
         }).on('click', function (e) {
             _t.editorTool && _t.editorTool.callCommand('destoryGenPopup');
@@ -208,7 +208,7 @@ commonHM.component['hmAi'].fn({
             if (_t.generator.progressFlag != 1) {
                 var jTar = $(e.target).closest('p');
                 // 获取所有子元素
-                var $children = jTar.find('.r-model-gen-text');
+                var $children = jTar.find('.r-model-gen');
                 var targetEl = null;
                 var x = e.clientX;
                 var y = e.clientY;
@@ -317,7 +317,7 @@ commonHM.component['hmAi'].fn({
         });
         $progreeContent.find('.mc-auto-text').remove();
 
-        $progreeContent.find('.r-model-gen-text').each(function (i, item) {
+        $progreeContent.find('.r-model-gen').each(function (i, item) {
             var $item = $(item);
             var inputArea = $item.closest('.new-textbox-content').removeAttr('generate').attr('_placeholdertext', true);
             $(item).remove();

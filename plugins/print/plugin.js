@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license Copyright (c) 2003-2017, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md or http://ckeditor.com/license
  */
@@ -775,11 +775,10 @@ function doPrint(editor, syncType, timeout, download, callback, downloadPdfCallb
             // css 写在 print.css 里面没用?
             // 把style 位置放到最前面，确保样式优先级最高
             var _style = '<style>p{margin:0!important;}table td, table th{padding:0!important;}'+
-            '.hm-revise-hide .hm_revise_ins {text-decoration: none !important;}'+
             '.hm-revise-hide .hm_revise_del {display: none;}'+
-            '.hm-revise-show .hm_revise_ins {color: red;text-decoration: none !important;}'+
-            '.hm-revise-show .hm_revise_del {display: inline;color: initial;text-decoration-line: line-through !important;'+
-            'text-decoration-color: red !important;}.hm-revise-show .hm_self_ins {color: initial;}'+'</style>';
+            '.hm-revise-show .hm_revise_ins {color:#000;background-color:#dcf0dd;border-top:2px solid rgba(30,174,49,.35);border-bottom:2px solid rgba(30,174,49,.35);}'+
+            '.hm-revise-show .hm_revise_del {display:inline;color:#000;background-color:#fce4ec;border-top:2px solid #e091a2;border-bottom:2px solid #e091a2;text-decoration:line-through!important;text-decoration-color:rgba(87,15,33,.5)!important;}'+
+            '.hm-revise-show .hm_self_ins {color: initial;}'+'</style>';
             var _class = shouldShowReviseInPrint?'hm-revise-show':'hm-revise-hide';
 
             papareHeaderStr = _style + '<div style="font-family:SimSun;line-height:1.5;margin-left:' + paperMargin.left +
@@ -975,10 +974,10 @@ function doPrint(editor, syncType, timeout, download, callback, downloadPdfCallb
 function addReviseStyle(body, shouldShowReviseInPrint){
     if(shouldShowReviseInPrint){
         $(body.$).find('.hm_revise_ins').each(function() {
-            $(this).attr('style', 'color: red !important;');
+            $(this).attr('style', 'color:#000!important;background-color:#dcf0dd!important;border-top:2px solid rgba(30,174,49,.35)!important;border-bottom:2px solid rgba(30,174,49,.35)!important;');
         });
         $(body.$).find('.hm_revise_del').each(function() {
-            $(this).attr('style', 'display: inline !important; color: initial !important; text-decoration: line-through !important; color: red !important;');
+            $(this).attr('style', 'display:inline!important;color:#000!important;background-color:#fce4ec!important;border-top:2px solid #e091a2!important;border-bottom:2px solid #e091a2!important;text-decoration:line-through!important;text-decoration-color:rgba(87,15,33,.5)!important;');
         });
     }
 }
@@ -999,8 +998,10 @@ function removeDocReminder(body){
     }
     $(body.$).find('.r-model-gen-remark').remove();
     $(body.$).find('.sk-popup').remove();
-    $(body.$).find('.r-model-gen-text').remove(); // ai 生成，但未保留
-    
+    // 移除 AI 生成未保留内容（.r-model-gen）及 data-attach-ai 标记
+    $(body.$).find('.r-model-gen').remove();
+    $(body.$).find('[data-attach-ai]').removeAttr('data-attach-ai');
+
     // 移除日期导航相关元素
     $(body.$).find('.date-navigation').remove();
 }

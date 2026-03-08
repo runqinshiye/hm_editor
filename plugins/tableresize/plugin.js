@@ -238,7 +238,26 @@
 			} else {
 				realWidth = pxUnit(realWidth);
 			}
-			mapTable[i][index].setAttribute('style', 'width:' + realWidth);
+			// 只更新 width，保留单元格原有 style（如边框隐藏等），避免拖拽列宽后边框重新显示
+			var cell = mapTable[i][index];
+			var existingStyle = cell.getAttribute('style') || '';
+			var styleObj = {};
+			if (existingStyle) {
+				existingStyle.split(';').forEach(function(part) {
+					var kv = part.split(':').map(function(s) { return s ? s.trim() : ''; });
+					if (kv.length === 2 && kv[0]) {
+						styleObj[kv[0].trim()] = kv[1].trim();
+					}
+				});
+			}
+			styleObj.width = realWidth;
+			var newStyle = [];
+			for (var k in styleObj) {
+				if (styleObj.hasOwnProperty(k)) {
+					newStyle.push(k + ':' + styleObj[k]);
+				}
+			}
+			cell.setAttribute('style', newStyle.join('; '));
 		}
 
 		// 同步跨页表格的列宽

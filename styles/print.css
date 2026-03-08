@@ -9,8 +9,22 @@ table.dashed-border td,table.dashed-border th{
 
 /* 修复打印时表格最右边横线超出边框的问题 */
 table {
-    overflow: hidden;
+    overflow: visible;
     box-sizing: border-box;
+}
+
+/* 仅加粗打印时最后一列单元格的右边框，解决右侧线过细；不加 !important，隐藏右边框仍优先 */
+table:not(.dashed-border) td:last-child,
+table:not(.dashed-border) th:last-child {
+    border-right-width: 1.2pt;
+}
+table.solid-border td:last-child,
+table.solid-border th:last-child {
+    border-right-width: 1.2pt;
+}
+table[data-hm-table=temperature] td:last-child,
+table[data-hm-table=temperature] th:last-child {
+    border-right-width: 1.2pt;
 }
 
 span[data-hm-node]{

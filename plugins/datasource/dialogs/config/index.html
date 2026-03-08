@@ -20,6 +20,7 @@
                 <li class="active"><a href="#baseConfig" data-toggle="tab">基础设置</a></li>
                 <li><a href="#advanceConfig" data-toggle="tab">高级设置</a></li>
                 <li><a href="#printConfig" data-toggle="tab">打印设置</a></li>
+                <li><a href="#remarkConfig" data-toggle="tab">备注</a></li>
             </ul>
         </div>
         <div class="tab-content">
@@ -264,6 +265,11 @@
                                         value="是">
                                     <label class="form-check-label" for="c7">可编辑</label>
                                 </div>
+                                <div class="form-check form-check-inline hidelabelcode-only">
+                                    <input _type="_hidelabelcode" class="form-check-input" type="checkbox" id="c_hidelabelcode"
+                                        value="true">
+                                    <label class="form-check-label" for="c_hidelabelcode">不显示编码</label>
+                                </div>
                             </div>
                         </div>
                     </fieldset>
@@ -417,6 +423,12 @@
                             <label class="form-check-label" for="p2">外边框(下拉菜单)</label>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div class="content tab-pane fade" id="remarkConfig">
+                <div class="row">
+                    <textarea _type="data-hm-remark" class="form-control" rows="5" maxlength="200" placeholder="多行文本，限制200字。"></textarea>
+                    <small class="text-muted">最多200字</small>
                 </div>
             </div>
         </div>

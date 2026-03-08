@@ -3,87 +3,128 @@ commonHM.component['documentModel'].fn({
      * 定位到病历或元素
      * @param {String} docCode 病历ID（必填）
      * @param {String} eleCode 元素ID（可选）
-     * @param {String} eleContent 元素内容（可选）
+     * @param {String} eleContent 元素内容或 trace_id（可选）。传文本时按内容定位光标；传 trace_id 时按 [trace_id="xxx"] 定位到对应节点
      * @returns {Boolean} 是否成功定位
      * 
      * 使用说明：
      * 1. 只有病历ID：滚动条定位到病历
      * 2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头
-     * 3. 病历+元素+元素内容：光标定位到元素内容的开头
+     * 3. 病历+元素+eleContent：若 eleContent 为 trace_id 则定位到该 trace 节点，否则按文本内容定位光标
+     * 4. 病历+eleContent（无 eleCode）：若 eleContent 为 trace_id 则在病历内查找该节点并定位
      */
     focusDocElement: function (docCode, eleCode, eleContent) {
         var _t = this;
-        
+
+        // 校验 docCode 是否传入
         if (!docCode) {
             console.error('focusElement: 病历ID不能为空');
             return false;
         }
-        
+
         try {
+            // 获取编辑器实例
             var editor = _t.editor;
             if (!editor) {
                 console.error('focusElement: 编辑器实例未初始化');
                 return false;
             }
-            
+
+            // 获取编辑器 body 节点（jQuery 包装）
             var editorBody = editor.document.getBody();
             var $body = $(editorBody.$);
-            
-            // 查找病历（通过 doc_code 属性）
+
+            // 查找病历（通过 doc_code 属性，理论上病历只有一个节点）
             var $docWidget = $body.find('[doc_code="' + docCode + '"]');
 
+            // 如果未找到病历节点，直接返回
             if ($docWidget.length === 0) {
                 console.warn('focusElement: 未找到病历，docCode=' + docCode);
                 return false;
             }
-            
-            // 情况1：只有病历ID，滚动到病历
-            if (!eleCode) {
+
+            // 情况1：只有病历ID，且无 eleCode/eleContent，滚动到病历节点
+            if (!eleCode && !eleContent) {
                 var docElement = $docWidget[0];
                 _t._scrollToElement(docElement);
                 return true;
             }
-            
-            // 情况2和3：需要定位到元素
-            // 在病历范围内查找元素
+
+            // 如果有 eleContent，优先判断是否为 trace_id 定位
+            if (eleContent) {
+                // 默认在整个病历范围查找
+                var searchScope = $docWidget;
+                // 如传递 eleCode，进一步缩小范围
+                if (eleCode) {
+                    // 优先使用 data-hm-code 查找
+                    var $byCode = $docWidget.find('[data-hm-code="' + eleCode + '"]:not([data-hm-node="labelbox"])');
+                    // 如果 data-hm-code 没找到，用 data-hm-name
+                    if ($byCode.length === 0) {
+                        $byCode = $docWidget.find('[data-hm-name="' + eleCode + '"]:not([data-hm-node="labelbox"])');
+                    }
+                    // 若找到目标元素，缩小 trace_id 查询范围
+                    if ($byCode.length > 0) {
+                        searchScope = $byCode.first();
+                    }
+                }
+                // 以 trace_id 查找节点
+                var $byTraceId = searchScope.find('[trace_id="' + eleContent + '"]').first();
+                if ($byTraceId.length > 0) {
+                    // 若有 trace_id 匹配节点，则直接定位到节点并设置光标
+                    var traceEl = $byTraceId[0];
+                    var traceCk = new CKEDITOR.dom.element(traceEl);
+                    _t._focusWithCursor(editor, traceCk, null, traceCk);
+                    return true;
+                }
+            }
+
+            // 无 eleCode 且 eleContent 按 trace_id 也未找到，直接返回（无法按文本内容精准定位）
+            if (!eleCode) {
+                if (eleContent) {
+                    console.warn('focusElement: 未找到 trace_id 对应节点，docCode=' + docCode + ', eleContent=' + eleContent);
+                }
+                return false;
+            }
+
+            // 以下处理 eleCode 场景（情况2和3）：按 eleCode 查找目标元素
+            // 优先按 data-hm-code 查找，排除掉 labelbox 类型
             var $element = $docWidget.find('[data-hm-code="' + eleCode + '"]:not([data-hm-node="labelbox"])');
-            
-            // 如果通过 keyCode 没找到，尝试通过 data-hm-name 查找
+            // 找不到时用 data-hm-name
             if ($element.length === 0) {
                 $element = $docWidget.find('[data-hm-name="' + eleCode + '"]:not([data-hm-node="labelbox"])');
             }
-            
+            // 若目标元素仍未找到，返回
             if ($element.length === 0) {
                 console.warn('focusElement: 未找到元素，docCode=' + docCode + ', eleCode=' + eleCode);
                 return false;
             }
-            
-            // 获取第一个匹配的元素
+
+            // 取第一个匹配到的元素，以后续定位和光标操作
             var targetElement = $element.first()[0];
             var ckElement = new CKEDITOR.dom.element(targetElement);
+            // 获取元素类型
             var nodeType = $element.attr('data-hm-node');
-            
-            // 获取光标目标元素（对于 newtextbox，需要定位到内部的 .new-textbox-content）
+            // 获取适合光标定位的目标元素
             var cursorTarget = _t._getCursorTargetElement(ckElement, nodeType);
-            
-            // 情况3：如果有元素内容，需要定位到内容位置
+
+            // 情况3：eleContent 作为文本时，在指定元素内查找文本并定位光标
             if (eleContent) {
                 var cursorInfo = _t._findTextPosition(editor, cursorTarget, eleContent);
                 _t._focusWithCursor(editor, cursorTarget, cursorInfo, ckElement);
                 return true;
             }
-            
-            // 情况2：只有元素
+
+            // 情况2：只有元素（无内容定位）
             if (nodeType == 'newtextbox') {
-                // 文本元素：光标定位到元素开头
+                // 可编辑文本框，直接将光标定位到起始处
                 _t._focusWithCursor(editor, cursorTarget, null, ckElement);
             } else {
-                // 非文本元素：只滚动到元素位置并添加高亮
+                // 非可编辑文本框仅滚动视图
                 _t._scrollToElement(ckElement);
             }
-            
+
             return true;
         } catch (error) {
+            // 发生任何异常，输出错误日志并返回 false
             console.error('focusElement: 执行失败', error);
             return false;
         }
@@ -96,6 +137,7 @@ commonHM.component['documentModel'].fn({
      * @returns {CKEDITOR.dom.element} 光标目标元素
      */
     _getCursorTargetElement: function (ckElement, nodeType) {
+        // 文本控件（newtextbox）的可编辑区域在内部 .new-textbox-content，需定位到该子元素才能正确落光标
         if (nodeType == 'newtextbox') {
             var $element = $(ckElement.$);
             var $contentElement = $element.find('.new-textbox-content').first();
@@ -103,6 +145,7 @@ commonHM.component['documentModel'].fn({
                 return new CKEDITOR.dom.element($contentElement[0]);
             }
         }
+        // 非 newtextbox 或未找到子内容时，直接使用当前元素
         return ckElement;
     },
     
@@ -122,7 +165,7 @@ commonHM.component['documentModel'].fn({
         if (domElement && domElement.scrollIntoView) {
             domElement.scrollIntoView({
                 behavior: 'smooth',
-                block: 'center',
+                block: 'start',
                 inline: 'nearest'
             });
         }

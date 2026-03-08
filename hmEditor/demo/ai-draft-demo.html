@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Permissions-Policy" content="unload=*, beforeunload=*">
+    <title>AI 草稿功能测试 - 入院记录</title>
+    <script src="../vendor/jquery.min.js"></script>
+    <script src="../iframe/HmEditorIfame.js"></script>
+    <link rel="stylesheet" href="./css/ai-draft-demo.css">
+</head>
+<body>
+    <div class="ai-draft-demo">
+        <div class="ai-draft-toolbar">
+            <h1 class="ai-draft-title">AI 草稿功能测试</h1>
+            <div class="ai-draft-btns">
+                <button type="button" id="btnAiDraft" class="btn-ai-draft">AI草稿病历</button>
+                <button type="button" id="btnConfirmAll" class="btn-confirm-all">保留全部</button>
+                <button type="button" id="btnCancelAll" class="btn-cancel-all">弃用全部</button>
+                <button type="button" id="btnGetHtml" class="btn-get-html">获取 HTML</button>
+                <button type="button" id="btnGetText" class="btn-get-text">获取 Text</button>
+                <button type="button" id="btnGetData" class="btn-get-data">获取数据元</button>
+            </div>
+        </div>
+        <div id="editorContainer" class="ai-draft-editor-container"></div>
+    </div>
+
+    <!-- AI 草稿参数弹窗 -->
+    <div class="ai-draft-dialog" id="aiDraftParamDialog">
+        <div class="ai-draft-dialog-mask"></div>
+        <div class="ai-draft-dialog-box">
+            <h3 class="ai-draft-dialog-title">AI草稿病历 - 参数</h3>
+            <div class="ai-draft-dialog-field">
+                <label>dataList（JSON 数组或对象）：</label>
+                <textarea id="aiDraftDataListInput" rows="12" placeholder='示例：[{"code":"DOC_001","data":[{"keyCode":"DE04.01.119.00","keyName":"主诉","keyValue":"..."}]}]'></textarea>
+                <a href="javascript:void(0);" id="aiDraftFillSample" class="ai-draft-fill-sample">填充示例</a>
+            </div>
+            <div class="ai-draft-dialog-field">
+                <label>displayType：</label>
+                <input type="text" id="aiDraftDisplayTypeInput" placeholder="0：覆盖；1：追加" />
+            </div>
+            <div class="ai-draft-dialog-actions">
+                <button type="button" id="aiDraftParamConfirm" class="btn-dialog-confirm">确定</button>
+                <button type="button" id="aiDraftParamCancel" class="btn-dialog-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 保留全部 - 参数弹窗 -->
+    <div class="ai-draft-dialog" id="confirmAllParamDialog">
+        <div class="ai-draft-dialog-mask"></div>
+        <div class="ai-draft-dialog-box">
+            <h3 class="ai-draft-dialog-title">保留全部 - 参数</h3>
+            <div class="ai-draft-dialog-field">
+                <label>数据元编码数组 keyList（可选）：</label>
+                <textarea id="confirmAllKeyListInput" rows="6" placeholder='不填则操作全部。示例：["DE04.01.119.00","DE02.10.071.00"]'></textarea>
+                <a href="javascript:void(0);" id="confirmAllFillSample" class="ai-draft-fill-sample">快速录入</a>
+            </div>
+            <div class="ai-draft-dialog-actions">
+                <button type="button" id="confirmAllParamConfirm" class="btn-dialog-confirm">确定</button>
+                <button type="button" id="confirmAllParamCancel" class="btn-dialog-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弃用全部 - 参数弹窗 -->
+    <div class="ai-draft-dialog" id="cancelAllParamDialog">
+        <div class="ai-draft-dialog-mask"></div>
+        <div class="ai-draft-dialog-box">
+            <h3 class="ai-draft-dialog-title">弃用全部 - 参数</h3>
+            <div class="ai-draft-dialog-field">
+                <label>数据元编码数组 keyList（可选）：</label>
+                <textarea id="cancelAllKeyListInput" rows="6" placeholder='不填则操作全部。示例：["DE04.01.119.00","DE02.10.071.00"]'></textarea>
+                <a href="javascript:void(0);" id="cancelAllFillSample" class="ai-draft-fill-sample">快速录入</a>
+            </div>
+            <div class="ai-draft-dialog-actions">
+                <button type="button" id="cancelAllParamConfirm" class="btn-dialog-confirm">确定</button>
+                <button type="button" id="cancelAllParamCancel" class="btn-dialog-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 获取 HTML / Text 结果展示弹窗 -->
+    <div class="ai-draft-dialog" id="getContentResultDialog">
+        <div class="ai-draft-dialog-mask"></div>
+        <div class="ai-draft-dialog-box ai-draft-result-box">
+            <h3 class="ai-draft-dialog-title" id="getContentResultTitle">内容</h3>
+            <div class="ai-draft-dialog-field ai-draft-result-field">
+                <textarea id="getContentResultTextarea" readonly rows="16" placeholder="获取的内容将显示在这里（已排除 AI 草稿）"></textarea>
+            </div>
+            <div class="ai-draft-dialog-actions">
+                <button type="button" id="getContentResultSaveHtml" class="btn-dialog-save-html" style="display: none;">保存 HTML</button>
+                <button type="button" id="getContentResultSaveText" class="btn-dialog-save-text" style="display: none;">保存 Text</button>
+                <button type="button" id="getContentResultSaveJson" class="btn-dialog-save-json" style="display: none;">保存 JSON</button>
+                <button type="button" id="getContentResultClose" class="btn-dialog-cancel">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/ai-draft-demo.js"></script>
+</body>
+</html>

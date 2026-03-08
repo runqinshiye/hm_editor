@@ -2422,3 +2422,391 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 2. **错误处理**：检查返回值判断是否插入成功
 3. **数据元保护**：理解数据元内部自动转换文本的机制，这是为了保护数据元结构
 4. **元素定位**：使用 `posTag` 时，确保目标元素已正确加载到编辑器中
+
+
+## 表格控制权限功能
+
+表格控制权限功能允许开发者对列表类表格的行进行权限控制，包括设置行的只读状态、删除权限和新增权限，适用于流程审批、权限管控、数据保护等场景。
+
+### 功能特点
+
+- **灵活的行索引支持**：支持单个行索引、数组、区间字符串等多种格式
+- **多种权限类型**：支持只读、删除、新增三种权限控制
+- **表格类型兼容**：支持竖向表格（col模式）和横向表格（row模式）
+- **批量操作**：支持一次性设置多行的权限
+- **实时生效**：权限设置立即在表格中生效
+
+### 基本用法
+
+```javascript
+// 设置表格行只读
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var tableCode = 'TABLE_001';  // 表格编码
+        var rowIndex = 0;              // 行索引（从0开始）
+        var isReadOnly = true;         // true:只读 false:可编辑
+        
+        editorInstance.setTableRowReadonly(tableCode, rowIndex, isReadOnly);
+        console.log('表格行只读状态设置成功');
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+
+// 设置表格行删除权限
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var tableCode = 'TABLE_001';
+        var rowIndex = [0, 1, 2];      // 支持数组格式，批量设置多行
+        var isDeletable = false;       // true:可删除 false:不可删除
+        
+        editorInstance.setTableRowDeletable(tableCode, rowIndex, isDeletable);
+        console.log('表格行删除权限设置成功');
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+
+// 设置表格行新增权限
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var tableCode = 'TABLE_001';
+        var rowIndex = '0-5,8,10-12';  // 支持区间字符串格式：0-5表示0到5行，8表示第8行，10-12表示10到12行
+        var isAddable = false;         // true:可新增 false:不可新增
+        
+        editorInstance.setTableRowAddable(tableCode, rowIndex, isAddable);
+        console.log('表格行新增权限设置成功');
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+### 方法参数说明
+
+#### setTableRowReadonly - 设置表格行只读
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| tableCode | String | 是 | 表格唯一编号（表格的 data-hm-table-code 或 data-hm-datatable 属性值） |
+| rowIndex | Number\|Array\|String | 是 | 行索引，支持：单个数字、数组、区间字符串（如"0-5,8,10-12"） |
+| flag | Boolean | 是 | 是否只读，true表示只读，false表示可编辑 |
+
+**返回值：** 无
+
+**使用说明：**
+- 只读状态下，该行的所有单元格将无法编辑
+- 只读状态下，单元格内的数据元（如时间选择器、下拉框等）将被禁用
+- 只读状态下，表格行会启用简洁模式，隐藏部分非必要元素
+- 只读权限会设置单元格的 `contenteditable` 属性为 `false`
+
+#### setTableRowDeletable - 设置表格行删除权限
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| tableCode | String | 是 | 表格唯一编号 |
+| rowIndex | Number\|Array\|String | 是 | 行索引，支持：单个数字、数组、区间字符串 |
+| flag | Boolean | 是 | 是否可删除，true表示可删除，false表示不可删除 |
+
+**返回值：** 无
+
+**使用说明：**
+- 删除权限控制该行是否允许被删除
+- 不可删除时，该行的删除按钮或删除操作将被禁用
+- 删除权限通过设置行的 `_row_deletable` 属性来控制
+
+#### setTableRowAddable - 设置表格行新增权限
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| tableCode | String | 是 | 表格唯一编号 |
+| rowIndex | Number\|Array\|String | 是 | 行索引，支持：单个数字、数组、区间字符串 |
+| flag | Boolean | 是 | 是否可新增，true表示可新增，false表示不可新增 |
+
+**返回值：** 无
+
+**使用说明：**
+- 新增权限控制该行是否允许在其后新增行
+- 不可新增时，该行的新增按钮或新增操作将被禁用
+- 新增权限通过设置行的 `_row_addable` 属性来控制
+
+### 行索引格式说明
+
+#### 单个数字
+```javascript
+editorInstance.setTableRowReadonly('TABLE_001', 0, true);  // 设置第0行
+```
+
+#### 数组格式
+```javascript
+editorInstance.setTableRowReadonly('TABLE_001', [0, 1, 2, 5], true);  // 设置第0、1、2、5行
+```
+
+#### 区间字符串格式
+```javascript
+// 支持多种格式组合，用逗号分隔
+editorInstance.setTableRowReadonly('TABLE_001', '0-5', true);        // 设置第0到5行
+editorInstance.setTableRowReadonly('TABLE_001', '0-5,8', true);     // 设置第0到5行和第8行
+editorInstance.setTableRowReadonly('TABLE_001', '0-5,8,10-12', true); // 设置第0到5行、第8行、第10到12行
+```
+
+### 表格类型说明
+
+#### 竖向表格（col模式）
+- **默认模式**：表格按列方向评估，行索引对应表格的 `<tr>` 行
+- **行索引含义**：直接对应表格的数据行索引（从0开始）
+- **适用场景**：常见的列表类表格，数据按行展示
+
+#### 横向表格（row模式）
+- **特殊模式**：表格按行方向评估，行索引对应表格的列索引
+- **行索引含义**：对应表格中每行的数据单元格索引（从0开始）
+- **识别方式**：表格具有 `evaluate-type="row"` 属性
+- **适用场景**：横向展示的表格，数据按列展示
+
+### 权限控制效果
+
+#### 只读权限（readonly）
+- **单元格编辑**：设置 `contenteditable="false"`，禁止直接编辑
+- **数据元禁用**：禁用单元格内的所有数据元控件（时间选择器、下拉框、单选框等）
+- **简洁模式**：隐藏打印标记、段落标记、占位符等非必要元素
+- **视觉反馈**：只读行会有明显的视觉区分
+
+#### 删除权限（deletable）
+- **删除按钮**：控制删除按钮的可用性
+- **删除操作**：阻止通过API或用户操作删除该行
+- **属性标记**：通过 `_row_deletable` 属性标记删除权限状态
+
+#### 新增权限（addable）
+- **新增按钮**：控制新增按钮的可用性
+- **新增操作**：阻止在该行后新增行
+- **属性标记**：通过 `_row_addable` 属性标记新增权限状态
+
+### 使用场景
+
+#### 流程审批
+1. **审批中**：设置已提交的行为只读，防止误修改
+2. **已审批**：设置已审批的行为只读且不可删除
+3. **待审批**：允许编辑和删除待审批的行
+
+#### 权限管控
+1. **角色权限**：根据用户角色设置不同行的权限
+2. **时间限制**：根据时间设置历史记录的只读状态
+3. **数据保护**：保护重要数据行不被修改或删除
+
+#### 数据保护
+1. **历史记录**：保护历史记录不被修改
+2. **关键数据**：保护关键数据行不被删除
+3. **审核数据**：保护已审核的数据不被修改
+
+### 常见问题
+
+#### 权限设置不生效
+
+1. **表格编码错误**：检查 `tableCode` 是否正确，确保与表格的 `data-hm-table-code` 或 `data-hm-datatable` 属性值一致
+2. **表格类型错误**：确认表格是列表类表格（`data-hm-table-type="list"`）
+3. **行索引超出范围**：检查行索引是否在有效范围内（从0开始，小于表格总行数）
+4. **表格未加载**：确保目标表格已经正确加载到编辑器中
+
+#### 行索引格式错误
+
+1. **区间格式错误**：区间字符串格式应为 "start-end"，如 "0-5"
+2. **数组格式错误**：数组应包含有效的数字索引
+3. **混合格式**：区间字符串中可以用逗号分隔多个区间或单个数字
+
+#### 只读状态异常
+
+1. **单元格仍可编辑**：检查是否所有单元格都已正确设置 `contenteditable` 属性
+2. **数据元未禁用**：确认数据元控件是否已正确禁用
+3. **简洁模式未生效**：检查简洁模式的CSS类是否正确应用
+
+#### 横向表格权限异常
+
+1. **索引理解错误**：横向表格中，行索引实际对应列索引
+2. **表格模式识别**：确认表格是否设置了 `evaluate-type="row"` 属性
+3. **列索引计算**：横向表格的列索引需要排除表头列
+
+### 最佳实践
+
+1. **参数验证**：设置权限前验证 `tableCode` 和 `rowIndex` 参数的有效性
+2. **批量操作**：尽量使用数组或区间字符串格式批量设置，减少API调用次数
+3. **错误处理**：对权限设置操作进行适当的错误处理
+4. **权限同步**：确保权限设置与业务逻辑保持同步
+5. **用户反馈**：为用户提供权限设置的反馈信息
+6. **权限恢复**：提供权限恢复机制，允许在必要时恢复权限
+7. **性能优化**：大量行时考虑分批设置权限
+8. **权限记录**：记录权限变更历史，便于审计和追踪
+9. **表格类型识别**：在设置权限前确认表格类型（col/row模式）
+10. **索引计算**：注意行索引从0开始，确保索引计算正确
+
+
+## 删除文档功能
+
+删除文档功能用于从聚合病历中删除部分文档，支持按文档编号删除单个或多个文档。适用于聚合病历的文档管理、内容精简等场景。
+
+### 基本用法
+
+```javascript
+// 删除单个文档
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var result = editorInstance.deleteDocContent('DOC_001');
+        if (result) {
+            console.log('文档删除成功');
+        } else {
+            console.warn('删除失败或当前仅剩一个文档不允许删除');
+        }
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+
+// 删除多个文档
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        var result = editorInstance.deleteDocContent(['DOC_001', 'DOC_002', 'DOC_003']);
+        if (result) {
+            console.log('文档删除成功');
+        }
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+### 方法参数说明
+
+#### deleteDocContent - 删除聚合病历中部分文档
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| docCode | String \| Array | 是 | 文档唯一编号，可为单个字符串或字符串数组 |
+
+**返回值：** Boolean
+
+- 成功删除至少一个文档时返回 `true`
+- 未删除任何文档（如当前仅剩一个文档、未找到对应文档等）时返回 `false`
+
+**使用说明：**
+
+- 当前聚合文档仅剩一个文档时，不允许删除，直接返回 `false`
+- 批量删除时，每删完一个文档会检查剩余数量，若只剩一个文档则停止后续删除
+- 非实时分页且删除第一个文档时，会将原文档的页眉移动到下一个文档
+- 非实时分页且删除最后一个文档时，会将原文档的页脚移动到上一个文档；若上一个文档已有页脚会先删除再移动
+- 删除时会移除整个文档对应的 widget 外层结构（含 `data-cke-widget-wrapper` 的 div）
+
+### 常见问题
+
+#### 删除后无反应
+
+1. **仅剩一个文档**：聚合病历中只剩一个文档时不允许删除，需至少保留一个文档
+2. **文档编号错误**：检查传入的 `docCode` 是否与编辑器中文档的 `data-hm-widgetid` 或 `doc_code` 一致
+3. **编辑器未就绪**：确保在编辑器加载完成后再调用
+
+
+## AI 草稿功能
+
+AI 草稿功能允许开发者将 AI 生成的内容以草稿形式展示在编辑器中，用户可逐项或批量确认采纳或弃用，适用于 AI 辅助书写、预填内容审核等场景。
+
+### showAiDraft - 显示 AI 草稿
+
+将数据以 AI 草稿形式填入对应数据元，界面会展示草稿内容供用户确认采纳或取消。参数格式与 `setDocData` 一致。
+
+#### 基本用法
+
+```javascript
+// 显示 AI 草稿（支持多份病历）
+var dataList = [
+    {
+        code: 'DOC001',
+        data: [
+            { keyCode: 'PATIENT_NAME', keyName: '患者姓名', keyValue: '张三' },
+            { keyCode: 'DIAGNOSIS', keyName: '诊断信息', keyValue: '感冒' }
+        ]
+    }
+];
+
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.showAiDraft(dataList);
+        // 或指定展示方式：0-覆盖，1-追加（默认）
+        editorInstance.showAiDraft(dataList, 1);
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+#### showAiDraft 方法说明
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| dataList | Array\|Object | 是 | 内容列表或单个内容对象，结构同 setDocData |
+| displayType | Number | 否 | 展示方式：0-覆盖（先清空原内容再展示），1-追加（默认） |
+
+**返回值：** 无
+
+**使用说明：** 将 `dataList` 中的内容以 AI 草稿形式填入对应数据元，用户可在界面中确认采纳或弃用。
+
+---
+
+### confirmAiDraft - 确认 AI 草稿
+
+对已展示的 AI 草稿执行“采纳”：将草稿内容写入对应数据元并移除草稿标记。支持全部确认或按数据元编码批量确认。
+
+#### 基本用法
+
+```javascript
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.confirmAiDraft();                      // 确认全部 AI 草稿
+        editorInstance.confirmAiDraft(['KEY_01', 'KEY_02']); // 仅确认指定数据元的草稿
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+#### confirmAiDraft 方法说明
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| keyList | Array\|String | 否 | 数据元编码数组或单个编码，不传则确认全部 |
+
+**返回值：** 无
+
+---
+
+### cancelAiDraft - 弃用 AI 草稿
+
+对已展示的 AI 草稿执行“弃用”：移除草稿内容及草稿标记，不写入数据元。支持全部弃用或按数据元编码批量弃用。
+
+#### 基本用法
+
+```javascript
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.cancelAiDraft();                      // 弃用全部 AI 草稿
+        editorInstance.cancelAiDraft(['KEY_01', 'KEY_02']); // 仅弃用指定数据元的草稿
+    })
+    .catch(function(error) {
+        console.error("获取编辑器实例失败:", error);
+    });
+```
+
+#### cancelAiDraft 方法说明
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| keyList | Array\|String | 否 | 数据元编码数组或单个编码，不传则弃用全部 |
+
+**返回值：** 无
+
+---
+
+### API 参考摘要
+
+| 方法 | 参数 | 返回值 | 描述 |
+| --- | --- | --- | --- |
+| showAiDraft | dataList:Array\|Object, [displayType:Number] | void | 显示 AI 草稿，参数同 setDocData |
+| confirmAiDraft | [keyList:Array\|String] | void | 确认（采纳）全部或指定数据元的 AI 草稿 |
+| cancelAiDraft | [keyList:Array\|String] | void | 弃用全部或指定数据元的 AI 草稿 |

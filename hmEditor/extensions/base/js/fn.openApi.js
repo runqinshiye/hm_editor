@@ -34,6 +34,21 @@ HMEditor.fn({
         // 直接调用documentModel的insertDoc方法
         this.documentModel.insertDocContent(insertPosition, docs);
     },
+    /**
+     * 删除聚合病历中部分病历
+     * @param {String|Array} docCode 文档唯一编号，可以是单个值或数组
+     * @returns {Boolean} 是否成功删除
+     * 
+     * 使用示例：
+     * // 删除单个病历
+     * HMEditor.deleteDocContent('DOC_001');
+     * 
+     * // 删除多个病历
+     * HMEditor.deleteDocContent(['DOC_001', 'DOC_002', 'DOC_003']);
+     */
+    deleteDocContent: function (docCode) {
+        return this.documentModel.deleteDocContent(docCode);
+    },
 
     /**
      * 设置文档数据元数据
@@ -55,6 +70,46 @@ HMEditor.fn({
             dataList = [dataList];
         }
         this.documentModel.setDocData(dataList);
+    },
+    /**
+     * 显示AI草稿内容（支持多份病历）
+     * 参数同 setDocData，将 data 中的内容以 AI 草稿形式填入对应数据元，用户可确认采纳或取消
+     * @param {Array|Object} dataList 内容列表或单个内容对象
+     * @param {Number} displayType 展示方式：0-覆盖（先清空原内容再展示），1-追加（默认）
+     * @param {String} dataList[].code 文档唯一编号(必传)
+     * @param {Array} dataList[].data 初始化数据(必传)
+     * @param {String} dataList[].data[].keyCode 数据元编码(必传)
+     * @param {String} dataList[].data[].keyName 数据元名称
+     * @param {String|String[]} dataList[].data[].keyValue 数据元内容，可以是字符串或字符串数组(必传)
+     * @param {Array} dataList[].nursingData 护理表单数据(可选)
+     */
+    showAiDraft: function (dataList, displayType) {
+        if (dataList && typeof dataList === 'object' && !Array.isArray(dataList)) {
+            dataList = [dataList];
+        }
+        this.hmAi.generator.showAiDraft(dataList, displayType);
+    },
+    /**
+     * AI 草稿确认全部或按数据元编码批量确认
+     * @param {Array|String} [keyList] 数据元编码数组或单个编码，不传则确认全部
+     *
+     * 使用示例：
+     * HMEditor.confirmAiDraft();                    // 确认全部
+     * HMEditor.confirmAiDraft(['KEY_01', 'KEY_02']); // 批量确认指定数据元
+     */
+    confirmAiDraft: function (keyList) {
+        this.hmAi.generator.confirmAiDraft(keyList);
+    },
+    /**
+     * AI 草稿弃用全部或按数据元编码批量弃用
+     * @param {Array|String} [keyList] 数据元编码数组或单个编码，不传则弃用全部
+     *
+     * 使用示例：
+     * HMEditor.cancelAiDraft();                    // 弃用全部
+     * HMEditor.cancelAiDraft(['KEY_01', 'KEY_02']); // 批量弃用指定数据元
+     */
+    cancelAiDraft: function (keyList) {
+        this.hmAi.generator.cancelAiDraft(keyList);
     },
     /**
      * 获取文档所有内容
@@ -529,13 +584,14 @@ HMEditor.fn({
      * 定位到病历或元素
      * @param {String} docCode 病历ID（必填）
      * @param {String} eleCode 元素ID（可选）
-     * @param {String} eleContent 元素内容（可选）
+     * @param {String} eleContent 元素内容或 trace_id（可选）。文本时按内容定位；trace_id 时按 [trace_id="xxx"] 定位节点
      * @returns {Boolean} 是否成功定位
      * 
      * 使用说明：
      * 1. 只有病历ID：滚动条定位到病历
      * 2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头
-     * 3. 病历+元素+元素内容：光标定位到元素内容的开头
+     * 3. 病历+元素+eleContent：支持 trace_id 或文本内容定位
+     * 4. 病历+eleContent（无 eleCode）：支持通过 trace_id 在病历内定位
      */
     focusElement: function (docCode, eleCode, eleContent) {
         return this.documentModel.focusElement(docCode, eleCode, eleContent);
@@ -553,5 +609,4 @@ HMEditor.fn({
     insertHtml: function (htmlContent, posTag) {
         return this.documentModel.insertHtml(htmlContent, posTag);
     }
-    
 });

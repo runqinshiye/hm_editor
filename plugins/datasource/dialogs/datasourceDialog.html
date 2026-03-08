@@ -27,7 +27,7 @@
         <li style="padding: 10px 5px;"> 未查询到数据元信息！</li>
     <% }else{ %>
         <%_.each(emrDataSourceList,function(datasource,index){%>
-            <li class="datasource-item" name="insert" index="<%=index%>" title="数据元类型：<%=datasource.nodeName%>" style="padding: 8px 5px; cursor: pointer; border-bottom: 1px solid #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"> <%=datasource.name%> </li>
+            <li class="datasource-item" name="insert" index="<%=index%>" title="<%=datasource.nodeName%>：<%=datasource.name%>" style="padding: 8px 5px; cursor: pointer; border-bottom: 1px solid #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"> <%=datasource.name%> </li>
         <%})%>
     <% } %>
 </script>

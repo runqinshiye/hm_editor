@@ -1614,6 +1614,12 @@ body.smart-panel {
         margin-left:12px;
     }
 }
+.focusElementDialog h3 {
+    font-size: 14px;
+}
+.focusElementDialog .input-group {
+    align-items: center;
+}
 .focusElementDialog .input-group label {
     width: 140px;
 }

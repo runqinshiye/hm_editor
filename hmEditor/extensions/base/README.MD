@@ -987,14 +987,14 @@ HMEditor.downloadPdf(function(pdfBlob) {
 
 ### 18. focusElement 方法
 
-该方法用于定位到指定的病历或元素位置，支持滚动定位、光标定位和高亮效果：
+该方法用于定位到指定的病历或元素位置，支持滚动定位、光标定位和高亮效果；第三个参数支持**文本内容**或 **trace_id**，传 trace_id 时可按节点属性精确定位。
 
 ```javascript
 /**
  * 定位到病历或元素
  * @param {String} docCode 病历ID（必填）
  * @param {String} eleCode 元素ID（可选）
- * @param {String} eleContent 元素内容（可选）
+ * @param {String} eleContent 元素内容或 trace_id（可选）。传文本时在元素内定位到该文本；传 trace_id 时定位到带 [trace_id="xxx"] 的节点
  * @returns {Boolean} 是否成功定位
  */
 ```
@@ -1005,7 +1005,7 @@ HMEditor.downloadPdf(function(pdfBlob) {
 | --- | --- | --- | --- |
 | docCode | String | 是 | 病历ID，用于定位目标病历 |
 | eleCode | String | 否 | 元素ID（data-hm-code 或 data-hm-name），用于定位病历中的具体元素 |
-| eleContent | String | 否 | 元素内容，用于在元素内容中定位到指定文本位置 |
+| eleContent | String | 否 | 元素内容或 trace_id。**文本**：在指定元素内定位到该文本开头；**trace_id**：在病历或元素内查找 `[trace_id="eleContent"]` 并定位到该节点 |
 
 #### 使用示例
 
@@ -1016,24 +1016,34 @@ HMEditor.focusElement('DOC001');
 // 示例2：定位到病历中的元素
 HMEditor.focusElement('DOC001', 'ELEMENT001');
 
-// 示例3：定位到元素内容中的指定文本
+// 示例3：按文本内容定位到元素内某段文字
 HMEditor.focusElement('DOC001', 'ELEMENT001', '睡眠障碍');
+
+// 示例4：按 trace_id 在病历内定位到对应节点（可不传 eleCode）
+HMEditor.focusElement('DOC001', null, 'trace_abc123');
+
+// 示例5：按 trace_id 在指定元素内定位到对应节点
+HMEditor.focusElement('DOC001', 'ELEMENT001', 'trace_abc123');
 ```
 
 #### 功能说明
 
-- **情况1**：只传 `docCode`，滚动条定位到病历位置，并添加高亮效果
-- **情况2**：传 `docCode` + `eleCode`，滚动条定位到元素位置，如果是文本元素（newtextbox）则光标定位到元素内容的开头，并添加高亮效果
-- **情况3**：传 `docCode` + `eleCode` + `eleContent`，光标定位到元素内容中指定文本的开头位置，并添加高亮效果
+- **情况1**：只传 `docCode`，滚动条定位到病历位置，并添加高亮效果。
+- **情况2**：传 `docCode` + `eleCode`，滚动条定位到元素位置；若为文本元素（newtextbox）则光标定位到元素内容开头，并添加高亮效果。
+- **情况3**：传 `docCode` + `eleCode` + `eleContent`  
+  - 若 `eleContent` 能按 **trace_id** 在元素内找到节点，则定位到该节点并高亮。  
+  - 否则按**文本**在元素内查找，光标定位到该文本开头并高亮；找不到则定位到元素开头。
+- **情况4**：传 `docCode` + `eleContent`（不传 `eleCode`），且 `eleContent` 为 **trace_id**：在整份病历内查找 `[trace_id="eleContent"]`，找到则定位到该节点并高亮。
 
 #### 注意事项
 
-1. **高亮效果**：定位成功后会添加高亮效果，3秒后自动消失
-2. **元素查找**：优先通过 `data-hm-code` 属性查找，如果找不到则通过 `data-hm-name` 属性查找
-3. **文本元素**：对于文本元素（newtextbox），会自动定位到内部的 `.new-textbox-content` 子元素
-4. **返回值**：返回 Boolean 类型，表示是否成功定位
+1. **高亮效果**：定位成功后会添加高亮效果，3秒后自动消失。
+2. **元素查找**：优先通过 `data-hm-code` 查找，找不到再通过 `data-hm-name` 查找。
+3. **trace_id 优先**：有 `eleContent` 时先按 trace_id 查找节点，未找到再按文本内容查找。
+4. **文本元素**：对于文本元素（newtextbox），会自动定位到内部的 `.new-textbox-content` 子元素。
+5. **返回值**：返回 Boolean，表示是否成功定位。
 
-### 23. insertHtml 方法
+### 19. insertHtml 方法
 
 该方法用于插入HTML内容，支持在光标处插入或在指定元素后插入：
 
@@ -1083,3 +1093,43 @@ HMEditor.insertHtml('<ul><li>项目1</li><li>项目2</li></ul>');
 - 如果光标在数据元（如 `newtextbox`、`timebox` 等）内部，HTML内容会自动转换为纯文本插入，以保持数据元的完整性
 - 如果未找到指定的定位元素（`posTag`），方法会返回 `false` 并在控制台输出警告信息
 - 插入HTML后会自动触发 `togglePlaceHolder` 事件，确保占位符状态正确更新
+
+### 20. deleteDocContent 方法
+
+该方法用于删除聚合病历中的部分文档。支持传入单个文档编号或文档编号数组。删除时若当前仅剩一个文档则不允许删除；在批量删除过程中，一旦剩余文档数为 1 也会停止继续删除。
+
+```javascript
+/**
+ * 删除聚合病历中部分文档
+ * @param {String|Array} docCode 文档唯一编号，可以是单个值或数组
+ * @returns {Boolean} 是否成功删除
+ */
+```
+
+#### 参数详细说明
+
+- `docCode`: 要删除的文档编号。可为单个字符串或字符串数组。
+  - 单个文档：传入字符串，如 `'DOC_001'`
+  - 多个文档：传入数组，如 `['DOC_001', 'DOC_002', 'DOC_003']`
+
+#### 返回值
+
+- 成功删除至少一个文档时返回 `true`
+- 未删除任何文档（如当前仅剩一个文档、未找到对应文档等）时返回 `false`
+
+#### 使用说明
+
+- 当前聚合文档仅剩一个文档时，不允许删除，直接返回 `false`
+- 批量删除时，每删完一个文档会检查剩余数量，若只剩一个文档则停止后续删除
+- 非实时分页且删除第一个文档时，会将原文档的页眉移动到下一个文档
+- 非实时分页且删除最后一个文档时，会将原文档的页脚移动到上一个文档；若上一个文档已有页脚会先删除再移动
+
+#### 使用示例
+
+```javascript
+// 删除单个文档
+HMEditor.deleteDocContent('DOC_001');
+
+// 删除多个文档
+HMEditor.deleteDocContent(['DOC_001', 'DOC_002', 'DOC_003']);
+```

@@ -1,0 +1,332 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.ai-draft-demo {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: #f5f6f8;
+}
+
+.ai-draft-toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #fff;
+    border-bottom: 1px solid #e8eaed;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.ai-draft-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.ai-draft-btns {
+    display: flex;
+    gap: 12px;
+}
+
+.ai-draft-btns button {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+.ai-draft-btns button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-ai-draft {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    color: #fff;
+}
+
+.btn-ai-draft:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+}
+
+.btn-confirm-all {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #fff;
+}
+
+.btn-confirm-all:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35);
+}
+
+.btn-cancel-all {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    color: #fff;
+}
+
+.btn-cancel-all:hover:not(:disabled) {
+    background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
+}
+
+.btn-get-html {
+    background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+    color: #fff;
+}
+
+.btn-get-html:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+}
+
+.btn-get-text {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+    color: #fff;
+}
+
+.btn-get-text:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
+}
+
+.btn-get-data {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    color: #fff;
+}
+
+.btn-get-data:hover:not(:disabled) {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+}
+
+.ai-draft-editor-container {
+    flex: 1;
+    min-height: 0;
+    margin: 12px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.ai-draft-editor-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* AI 草稿参数弹窗 */
+.ai-draft-dialog {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-draft-dialog.show {
+    display: flex;
+}
+
+.ai-draft-dialog-mask {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.ai-draft-dialog-box {
+    position: relative;
+    width: 520px;
+    max-width: 90vw;
+    max-height: 85vh;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ai-draft-dialog-title {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.ai-draft-dialog-field {
+    margin-bottom: 14px;
+}
+
+.ai-draft-dialog-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.ai-draft-dialog-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+    resize: vertical;
+}
+
+.ai-draft-dialog-field textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.ai-draft-dialog-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.ai-draft-dialog-field input::placeholder {
+    color: #9ca3af;
+}
+
+.ai-draft-dialog-field input:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.ai-draft-fill-sample {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.ai-draft-fill-sample:hover {
+    text-decoration: underline;
+}
+
+.ai-draft-dialog-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-dialog-confirm {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-dialog-confirm:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+}
+
+.btn-dialog-cancel {
+    padding: 8px 20px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-dialog-cancel:hover {
+    background: #e5e7eb;
+}
+
+.btn-dialog-save-html {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-dialog-save-html:hover {
+    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+}
+
+.btn-dialog-save-text {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-dialog-save-text:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+}
+
+.btn-dialog-save-json {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-dialog-save-json:hover {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+}
+
+/* 获取 HTML / Text 结果弹窗 */
+.ai-draft-result-box {
+    width: 640px;
+    max-width: 92vw;
+}
+
+.ai-draft-result-field {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ai-draft-result-field textarea {
+    flex: 1;
+    min-height: 280px;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}

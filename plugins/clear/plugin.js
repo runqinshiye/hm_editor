@@ -43,8 +43,15 @@
                 buttons: {
                     "确认": function() {
                         $(this).dialog("close");
-                        var $body = $(editor.document.getBody().$);
-                        $body.html('<p><br></p>');
+                        // 只清空最里层.emrWidget-content div的内容，保留外层结构
+                        var body = editor.document.getBody();
+                        var emrWidgetContents = body.find('.emrWidget-content');
+                        if (emrWidgetContents && emrWidgetContents.count() > 0) {
+                            for (var i = 0; i < emrWidgetContents.count(); i++) {
+                                var contentDiv = emrWidgetContents.getItem(i);
+                                contentDiv.setHtml('<p><br></p>');
+                            }
+                        }
                     },
                     "取消": function() {
                         $(this).dialog("close");

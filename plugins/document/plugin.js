@@ -1258,11 +1258,24 @@ CKEDITOR.plugins.add('document', {
                     arrowKey = true;
                     break;
                 case 'KeyC':
-                    if (evt.data.$.ctrlKey = true)
+                    // This line should check if the Ctrl key is pressed, but currently uses assignment (=)
+                    // Instead, it should use '==' or preferably '===', and check the condition.
+                    if (evt.data.$.ctrlKey === true)
                         arrowKey = true;
                     break;
                 case 'Delete':
                 case 'Backspace':
+                    // 只读模式下禁止删除（含表格内文字、单元格内容）
+                    if (typeof checkCurDomReadOnly === 'function' && checkCurDomReadOnly(editor)) {
+                        evt.stop();
+                        evt.data.preventDefault();
+                        return false;
+                    }
+                    if (range0 && typeof range0.checkReadOnly === 'function' && range0.checkReadOnly()) {
+                        evt.stop();
+                        evt.data.preventDefault();
+                        return false;
+                    }
                     // 先检查是否在表格中，如果在表格中且选中了单元格，则只删除单元格内容
                     if (selection && selection.isInTable && selection.isInTable()) {
                         var tabletools = editor.plugins.tabletools;
@@ -1314,6 +1327,14 @@ CKEDITOR.plugins.add('document', {
             //
             var contenteditable = evt.data.getTarget().$.getAttribute('contenteditable');
             if ($.ui.keyCode.SPACE === evt.data.getKey() && !fixNode && contenteditable != 'false') {
+
+                // 数据元设置为只读时，不插入空格
+                var $boundaryNewtextbox = editor.plugins.datasource && editor.plugins.datasource.getRangeBoundaryNewtextbox();
+                if ($boundaryNewtextbox && $boundaryNewtextbox.length && $boundaryNewtextbox.attr('_isdisabled') === 'true') {
+                    evt.stop();
+                    evt.data.preventDefault();
+                    return false;
+                }
 
                 var space = new CKEDITOR.dom.text('\u3000');
                 if (evt.data.$.altKey) {
@@ -1568,6 +1589,9 @@ CKEDITOR.plugins.add('document', {
                     return;
                 }
                 editor.setInsMark(selection, evt.data.$.data, 'hm_revise_ins');
+                if (evt.data.$.inputType && evt.data.$.inputType.indexOf('insert') > -1) {
+                    selectedText = ''; // 本次插入已处理完，清空避免影响后续输入
+                }
             });
             editable.attachListener(editable, 'compositionstart', function (evt) {
                 if (editor.readOnly) {
@@ -1593,6 +1617,7 @@ CKEDITOR.plugins.add('document', {
                     selTextBeforeInsert = selectedText;
                 } else {
                     selTextBeforeInsert = '';
+                    selectedText = ''; // 无选区时清空，避免中文输入后误用上一次替换的“被删文字”
                 }
                 beforeCHInputText = selTextBeforeInsert;
                 if ((!editor.commands["revise"] || !editor.reviseModelOpened)) {
@@ -1628,6 +1653,9 @@ CKEDITOR.plugins.add('document', {
                         // return;
                     } else {
                         editor.setInsMark(selection, evt.data.$.data, 'hm_revise_ins');
+                        if (evt.data.$.inputType && evt.data.$.inputType.indexOf('insert') > -1) {
+                            selectedText = '';
+                        }
                     }
                 }
 
@@ -1663,6 +1691,9 @@ CKEDITOR.plugins.add('document', {
                 if (evt.data.$.inputType.indexOf('insert') > -1 && (!isCompositioning)) {
                     if (selection.getSelectedText().trim()) {
                         selectedText = beforeInputText;
+                    } else {
+                        // 无选区时清空，避免在别处输入时误用上一次替换的“被删文字”
+                        selectedText = '';
                     }
                 }
             });
@@ -1807,12 +1838,12 @@ CKEDITOR.plugins.add('document', {
                         range0.insertNode(delMark);
                         range0.collapse(false); // 移动到删除标记后面
                         range0.insertNode(insMark);
-                        range0.collapse(false); // 移动到新增标记后面
+                        range0.moveToElementEditEnd(insMark); // 光标移入 ins 末尾，使后续输入都落在 ins 内
                         range0.select();
                     } else {
                         // 直接插入新增标记
                         range0.insertNode(insMark);
-                        range0.collapse(false); // 移动到标记后面
+                        range0.moveToElementEditEnd(insMark); // 光标移入 ins 末尾，使后续输入都落在 ins 内
                         range0.select();
                     }
                 }

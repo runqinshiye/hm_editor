@@ -953,20 +953,78 @@ span[_radiostyle='radioStyle_square'] span[data-hm-itemname].fa-dot-circle-o:bef
 
 /* 修订样式==== start ===== */
 .hm-revise-show .hm_revise_ins {
-    color: red;
+    color: #000;
+    background-color: #dcf0dd;
+    border-top: 2px solid rgb(30 174 49 / 35%);
+    border-bottom: 2px solid rgb(30 174 49 / 35%);
 }
 .hm-revise-hide .hm_revise_del {
     display: none;
 }
 .hm-revise-show .hm_revise_del {
     display: inline;
-    color: initial;
-    text-decoration-line: line-through !important;
-    text-decoration-color: red !important;
+    color: #000;
+    background-color: #fce4ec;
+    border-top: 2px solid #e091a2;
+    border-bottom: 2px solid #e091a2;
+    text-decoration: line-through !important;
+    text-decoration-color: rgba(87,15,33,.5) !important;
 }
 .hm-revise-show .hm_self_ins {
     color: initial;
 }
+
+/* 修订悬停提示框：显示修改人及修改内容，位于修订内容下方 */
+.hm-revise-tooltip {
+    position: fixed;
+    z-index: 10000;
+    min-width: 200px;
+    max-width: 300px;
+    padding: 12px 14px 14px 16px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border-left: 3px solid transparent;
+    font-size: 13px;
+    line-height: 1.4;
+    pointer-events: auto;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+.hm-revise-tooltip.hm-revise-tooltip-ins {
+    border-left-color: #1eae31;
+}
+.hm-revise-tooltip.hm-revise-tooltip-del {
+    border-left-color: #d32f2f;
+}
+.hm-revise-tooltip-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: #555;
+}
+.hm-revise-tooltip-name {
+    font-weight: 500;
+    color: #333;
+}
+.hm-revise-tooltip-time {
+    margin-left: auto;
+    color: #666;
+    font-size: 12px;
+}
+.hm-revise-tooltip-body {
+    color: #1a1a1a;
+    font-size: 13px;
+}
+.hm-revise-tooltip-body strong {
+    color: #1a365d;
+    font-weight: 600;
+}
+
 /* 修订样式==== end ===== */
 
 /*分页记号*/
@@ -1105,6 +1163,20 @@ em strong{
         border: 0px;
     }
 
+    /* 仅加粗打印时最后一列单元格的右边框，解决右侧线过细；不加 !important，隐藏右边框仍优先 */
+    table:not(.dashed-border) td:last-child,
+    table:not(.dashed-border) th:last-child {
+        border-right-width: 1.2pt;
+    }
+    table.solid-border td:last-child,
+    table.solid-border th:last-child {
+        border-right-width: 1.2pt;
+    }
+    table[data-hm-table=temperature] td:last-child,
+    table[data-hm-table=temperature] th:last-child {
+        border-right-width: 1.2pt;
+    }
+
     td[_emrstyle ~='_if(overflow){breakparagraph}']{
         white-space: normal;word-break:break-all;line-height: 1;
     }
@@ -1173,6 +1245,28 @@ em strong{
 
     ._printHide{
         display: none !important;
+    }
+    /* 打印模式修订样式（与屏幕显示一致） */
+    .hm-revise-show .hm_revise_ins {
+        color: #000;
+        background-color: #dcf0dd;
+        border-top: 2px solid rgb(30 174 49 / 35%);
+        border-bottom: 2px solid rgb(30 174 49 / 35%);
+    }
+    .hm-revise-hide .hm_revise_del {
+        display: none;
+    }
+    .hm-revise-show .hm_revise_del {
+        display: inline;
+        color: #000;
+        background-color: #fce4ec;
+        border-top: 2px solid #e091a2;
+        border-bottom: 2px solid #e091a2;
+        text-decoration: line-through !important;
+        text-decoration-color: rgba(87,15,33,.5) !important;
+    }
+    .hm-revise-show .hm_self_ins {
+        color: initial;
     }
     /* 病历中下拉菜单边框显示样式 */
     span[data-hm-node=dropbox][_border] {
@@ -1829,5 +1923,46 @@ span[data-hm-node=timebox][_notnull=true].concise-model:after{
     [data-hm-node="positionnode"] {
         display: none !important;
     }
+}
+
+/* data-attach-ai：挂载 AI 草稿的数据元，取消 after 的 content */
+span.new-textbox[data-attach-ai]::after {
+    content: '';
+}
+
+/* ai-action-btns：AI 草稿操作区 */
+span.ai-action-btns {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    gap: 6px;
+    vertical-align: middle;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+/* ai-pending-text：保留/弃用文案 */
+span.ai-pending-text {
+    font-size: 12px;
+    padding: 0 6px 0 4px;
+    display: inline-block;
+    background-color: #FFF1E6;
+    margin-left: 4px;
+    color: #D46B08;
+    border: 1px solid #FFD8BF;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-top: -4px;
+}
+span.ai-pending-text::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    background: url(img/icons/tip_icon.png) no-repeat center;
+    background-size: contain;
+    vertical-align: -2px;
 }
 

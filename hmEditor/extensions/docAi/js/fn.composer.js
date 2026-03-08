@@ -334,7 +334,7 @@ commonHM.component['hmAi'].fnSub("composer", {
                 _t.documentScroll();
             }
             $(this).toggleClass('icon-show');
-        }).on('click', '.btn-confirm', function () { //保留
+        }).on('click', '.btn-confirm', function () { //保留 
             var autoPanel = _t.getAutoPanel(editContent);
             if (_t.opts.type == 1) { //错误替换
                 utils.removeHighlights(relEl[0]); // 删除旧的;

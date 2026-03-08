@@ -1565,7 +1565,12 @@
 						ranges[ 0 ].moveToElementEditablePosition( toStart ? firstCell : lastCell, !toStart );
 						selection.selectRanges( [ ranges[ 0 ] ] );
 					} else {
-						// Delete.
+						// Delete. 只读模式下不执行删除
+						if ( editor.readOnly || ( ranges[ 0 ] && ranges[ 0 ].checkReadOnly && ranges[ 0 ].checkReadOnly() ) ) {
+							evt.data.preventDefault();
+							evt.cancel();
+							return;
+						}
 						for ( i = 0; i < ranges.length; i++ ) {
 							clearCellInRange( ranges[ i ] );
 						}
@@ -1600,6 +1605,12 @@
 				}
 
 				ranges = selection.getRanges();
+				// 只读模式下不执行清除/输入
+				if ( editor.readOnly || ( ranges[ 0 ] && ranges[ 0 ].checkReadOnly && ranges[ 0 ].checkReadOnly() ) ) {
+					evt.data.preventDefault();
+					evt.cancel();
+					return;
+				}
 				firstCell = ranges[ 0 ].getEnclosedNode().getAscendant( { td: 1, th: 1 }, true );
 
 				for ( i = 0; i < ranges.length; i++ ) {

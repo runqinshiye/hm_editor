@@ -43,6 +43,15 @@ commonHM.component['documentModel'].fn({
         _t.insertContent(insertPosition, docs);
     },
     /**
+     * 删除文档内容
+     * @param {String|Array} docCode 文档唯一编号，可以是单个值或数组
+     * @returns {Boolean} 是否成功删除
+     */
+    deleteDocContent: function(docCode) {
+        var _t = this;
+        return _t.deleteContent(docCode);
+    },
+    /**
      * 设置文档数据元内容
      * @param {Array} dataList
      */
@@ -187,13 +196,14 @@ commonHM.component['documentModel'].fn({
      /* 定位到病历或元素
      * @param {String} docCode 病历ID（必填）
      * @param {String} eleCode 元素ID（可选）
-     * @param {String} eleContent 元素内容（可选）
+     * @param {String} eleContent 元素内容或 trace_id（可选）。文本时按内容定位；trace_id 时按 [trace_id="xxx"] 定位节点
      * @returns {Boolean} 是否成功定位
      * 
      * 使用说明：
      * 1. 只有病历ID：滚动条定位到病历
      * 2. 病历+元素：滚动条定位到元素，如果是文本则光标定位到元素内容的开头
-     * 3. 病历+元素+元素内容：光标定位到元素内容的开头
+     * 3. 病历+元素+eleContent：支持 trace_id 或文本内容定位
+     * 4. 病历+eleContent（无 eleCode）：支持通过 trace_id 在病历内定位
      */
     focusElement: function (docCode, eleCode, eleContent) {
         var _t = this;

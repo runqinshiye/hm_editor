@@ -715,6 +715,10 @@ commonHM.component['documentModel'].fn({
                 // 获取节点类型
                 var nodeType = datasourceNode.attr('data-hm-node');
                 var bindVal = dataItem.keyValue;
+                // 当 keyValue 是数字 0 或 false 时，先转为字符串再参与后续判断，避免被当作 falsy 忽略
+                if (bindVal === 0 || bindVal === false) {
+                    bindVal = String(bindVal);
+                }
                 var imgFlag = false;
                 var contentArray = [];
 
@@ -1377,6 +1381,9 @@ commonHM.component['documentModel'].fn({
                 $body.find('.table-cell-actions').remove();
             });
 
+        // 修订悬停：hm_revise_del / hm_revise_ins 悬停时在下方显示修改人及修改内容
+        _t._initReviseHoverTooltip($body);
+
         // 检查是否存在护理表单表格，如果存在则初始化日期导航功能
         var nursingFormTables = $body.find('table[data-hm-datatable][data-hm-table-type="list"][evaluate-type="col"]');
         if (nursingFormTables.length > 0) {
@@ -1386,69 +1393,94 @@ commonHM.component['documentModel'].fn({
             console.log('未检测到护理表单表格，跳过日期导航功能初始化');
         } 
 
+        // 监听可编辑内容的自定义事件（input/click/dblclick -> onElementChange/onElementClick/onElementDbclick）
+        _t._initContentEditableElementEvents($body);
+    },
+
+    /**
+     * 为 contenteditable 元素绑定自定义事件监听（onElementChange / onElementClick / onElementDbclick）
+     * @param {jQuery} $body 编辑器 body 元素
+     */
+    _initContentEditableElementEvents: function ($body) {
+        var editableSelector = '[data-hm-node="newtextbox"] [contenteditable="true"], [data-hm-code][contenteditable="true"], [data-hm-name][contenteditable="true"]';
+        // 用于存储每个元素的 click 延迟定时器，避免双击时触发单击事件
+        var clickTimerMap = {};
+
         // 监听可编辑内容的变化（适用于 contenteditable 元素）
-        // 使用 input 事件来实时捕获编辑，change 事件可能不会触发
-        $body.on('input', '[data-hm-node="newtextbox"] [contenteditable="true"], [data-hm-code][contenteditable="true"], [data-hm-name][contenteditable="true"]', function () {
+        // input：用户编辑内容时触发，通知外部 onElementChange（使用 input 而非 change，以便实时捕获 contenteditable 变更）
+        $body.on('input', editableSelector, function () {
+            // 检查全局 window 对象上是否存在 onElementChange 回调函数（用于处理内容变更）
             if (typeof window.onElementChange === 'function') {
                 try {
-                    // 找到对应的数据元素节点
+                    // 获取当前触发 input 事件的元素（通常是最里层的可编辑内容）
                     var $element = $(this);
+                    // 向上查找最近的 data-hm-code、data-hm-name 或 data-hm-node 容器节点
                     var $datasourceNode = $element.closest('[data-hm-code], [data-hm-name], [data-hm-node]');
-                    // 如果没找到数据元素节点，则使用当前元素本身
+                    // 如果找到了容器节点，则将该节点作为回调参数，否则用当前元素
                     var element = $datasourceNode.length > 0 ? $datasourceNode[0] : this;
+                    // 调用全局变更回调，通知外部该元素内容发生变化
                     window.onElementChange(element);
                 } catch (error) {
+                    // 捕获并打印回调执行异常，避免影响后续逻辑
                     console.error('onElementChange 执行失败:', error);
                 }
             }
         });
-        // 用于存储每个元素的click延迟定时器，避免双击时触发单击事件
-        var clickTimerMap = {}; 
-        
-        // 文本类型 增加双击事件触发
-        $body.on('dblclick',  '[data-hm-node="newtextbox"] [contenteditable="true"], [data-hm-code][contenteditable="true"], [data-hm-name][contenteditable="true"]', function () {
-            // 双击时，清除该元素的click延迟定时器，防止单击事件触发
+
+        // dblclick：双击时触发 onElementDbclick，并取消该元素上待执行的单击定时器，避免单击、双击同时触发
+        $body.on('dblclick', editableSelector, function () {
+            // 获取当前被双击的元素
             var $element = $(this);
+            // 向上查找最近的 data-hm-code、data-hm-name 或 data-hm-node 容器节点
             var $datasourceNode = $element.closest('[data-hm-code], [data-hm-name], [data-hm-node]');
+            // 若存在数据节点，则将其 DOM 元素作为事件参数，否则使用当前被双击元素
             var element = $datasourceNode.length > 0 ? $datasourceNode[0] : this;
+            // 基于 data-hm-id 属性生成唯一 key，用于管理该元素的点击延时定时器
             var elementKey = 'id_' + $datasourceNode.attr('data-hm-id');
-            
+
+            // 如果存在针对该元素的 click 延时定时器（单击），则双击时需清除，避免单、双击同时触发
             if (clickTimerMap[elementKey]) {
-                clearTimeout(clickTimerMap[elementKey]);
+                clearTimeout(clickTimerMap[elementKey]); // 清除单击定时器
                 delete clickTimerMap[elementKey];
             }
-            
+
+            // 如果全局 window 对象中声明了 onElementDbclick 方法，则触发双击回调
             if (typeof window.onElementDbclick === 'function') {
                 try {
                     window.onElementDbclick(element);
                 } catch (error) {
+                    // 捕获并打印回调异常，避免影响其他逻辑
                     console.error('onElementDbclick 执行失败:', error);
                 }
             }
         });
-        
-        // 文本类型 增加单击事件触发（使用延迟机制避免与双击冲突）
-        $body.on('click',  '[data-hm-node="newtextbox"] [contenteditable="true"], [data-hm-code][contenteditable="true"], [data-hm-name][contenteditable="true"]', function () {
+
+        // click：单击时延迟 300ms 再触发 onElementClick；若在此时间内发生双击，则由 dblclick 清除定时器，只触发双击回调
+        $body.on('click', editableSelector, function () {
+            // 判断全局 window 对象中是否声明了 onElementClick 方法（用于处理单击回调）
             if (typeof window.onElementClick === 'function') {
                 try {
-                    // 找到对应的数据元素节点
+                    // 获取当前被点击的内容元素
                     var $element = $(this);
+                    // 向上查找最近的 data-hm-code、data-hm-name 或 data-hm-node 容器节点
                     var $datasourceNode = $element.closest('[data-hm-code], [data-hm-name], [data-hm-node]');
-                    // 如果没找到数据元素节点，则使用当前元素本身
+                    // 若存在数据节点，则将其作为事件回调参数；否则使用当前被点击元素
                     var element = $datasourceNode.length > 0 ? $datasourceNode[0] : this;
+                    // 构建唯一 key，便于管理定时器（基于 data-hm-id 属性做区分）
                     var elementKey = 'id_' + $datasourceNode.attr('data-hm-id');
-                    
-                    // 清除之前的定时器（如果存在）
+
+                    // 如果当前元素已存在定时器，先清理，保证只触发一次单击逻辑
                     if (clickTimerMap[elementKey]) {
                         clearTimeout(clickTimerMap[elementKey]);
                     }
-                    
-                    // 延迟执行click事件，如果在延迟期间发生双击，则会被清除
-                    clickTimerMap[elementKey] = setTimeout(function() {
-                        delete clickTimerMap[elementKey];
-                        window.onElementClick(element);
-                    }, 300); // 300ms延迟，双击的间隔通常小于此值
+
+                    // 延迟 300ms 后触发单击回调，若双击则会提前清除，不触发单击逻辑
+                    clickTimerMap[elementKey] = setTimeout(function () {
+                        delete clickTimerMap[elementKey]; // 触发后移除定时器引用
+                        window.onElementClick(element);   // 触发外部回调
+                    }, 300);
                 } catch (error) {
+                    // 捕获并输出 onElementClick 回调中的异常，避免影响主逻辑
                     console.error('onElementClick 执行失败:', error);
                 }
             }
@@ -1906,8 +1938,10 @@ commonHM.component['documentModel'].fn({
                         $textbox.text('');
                         $textbox.removeAttr('_placeholdertext');
                     }
-                    // 移除文本框的contenteditable属性，让其继承父级状态
-                    $textbox.removeAttr('contenteditable');
+                    // 显式设置文本框的contenteditable为true，确保可编辑
+                    $textbox.attr('contenteditable', 'true');
+                    // 同时设置内部元素的contenteditable为true（参考_setCellContentReadonly的逻辑）
+                    $textbox.find('span:not([data-hm-node="expressionbox"]), font').attr('contenteditable', 'true');
                 }
 
                 // 确保数据元可交互
@@ -2049,8 +2083,10 @@ commonHM.component['documentModel'].fn({
                         $textbox.text('');
                         $textbox.removeAttr('_placeholdertext');
                     }
-                    // 移除contenteditable属性，让其继承父级状态
-                    $textbox.removeAttr('contenteditable');
+                    // 显式设置文本框的contenteditable为true，确保可编辑
+                    $textbox.attr('contenteditable', 'true');
+                    // 同时设置内部元素的contenteditable为true（参考_setCellContentReadonly的逻辑）
+                    $textbox.find('span:not([data-hm-node="expressionbox"]), font').attr('contenteditable', 'true');
                 });
 
                 // 确保数据元可交互
@@ -2220,6 +2256,286 @@ commonHM.component['documentModel'].fn({
         } catch (error) {
             console.warn('更新表格colgroup时发生错误:', error);
         }
+    },
+
+    /**
+     * 初始化修订悬停提示：hm_revise_del / hm_revise_ins 悬停时在下方显示修改人及修改内容
+     * @param {jQuery} $body 编辑器body元素
+     */
+    /**
+     * 初始化修订悬停提示功能。
+     * 当用户悬停在带有 hm_revise_ins 或 hm_revise_del 类的元素上时，
+     * 在元素下方显示一个悬浮提示，展示修改人、修改时间和变更内容。
+     * @param {jQuery} $body 编辑器 body 元素
+     */
+    _initReviseHoverTooltip: function ($body) {
+        var _t = this;
+
+        // --- 常量 ---
+        var REVISE_SELECTOR = '.hm_revise_ins, .hm_revise_del';
+        var TOOLTIP_CLASS = 'hm-revise-tooltip';
+        var GAP = 6;                    // tooltip 与修订元素垂直间距（px）
+        var SHOW_DELAY = 400;           // 悬停多久后才显示 tooltip（ms），避免误触
+        var NODE_TYPE_TEXT = 3;
+        var NODE_TYPE_ELEMENT = 1;
+
+        // --- 清理：解绑旧事件、移除旧监听（setContent 会再次调用本方法，须避免重复绑定）---
+        $body.off('mouseenter.reviseTooltip mouseleave.reviseTooltip input.reviseTooltip');
+        if (_t._reviseTooltipChangeListener) {
+            _t._reviseTooltipChangeListener.removeListener();
+            _t._reviseTooltipChangeListener = null;
+        }
+        if (_t._reviseTooltipSelectionListener) {
+            _t._reviseTooltipSelectionListener.removeListener();
+            _t._reviseTooltipSelectionListener = null;
+        }
+
+        // --- 创建或复用 tooltip 节点（支持多编辑器实例）---
+        var tooltipId = 'hm-revise-tooltip-' + (_t.editor.name || '');
+        var $tooltip = $body.find('#' + tooltipId);
+        if (!$tooltip.length) {
+            $tooltip = $('<div id="' + tooltipId + '" class="' + TOOLTIP_CLASS + '" style="display:none;" contenteditable="false"></div>');
+            $body.append($tooltip);
+        }
+        $tooltip.off('mouseenter mouseleave').attr('contenteditable', 'false');
+
+        // --- 状态：定时器与当前展示的修订元素（闭包内共享）---
+        var hideTimer = null;           // 隐藏 tooltip 的延迟（未使用延迟隐藏，仅用于 cancelHide 清理）
+        var showTooltipTimer = null;    // 延迟显示 tooltip，达到 SHOW_DELAY 后才真正 show
+        var currentRevEl = null;        // 当前正在显示 tooltip 的修订 DOM 元素，用于 refresh/判断光标
+        var refreshTooltipTimer = null; // 防抖：change 后延迟一帧刷新内容与位置
+
+        /**
+         * 获取元素的直接文本内容（不包含嵌套修订标签的子内容）
+         */
+        function getDirectText($el) {
+            var text = '';
+            $el.contents().each(function () {
+                if (this.nodeType === NODE_TYPE_TEXT) {
+                    text += this.nodeValue;
+                } else if (this.nodeType === NODE_TYPE_ELEMENT) {
+                    var $child = $(this);
+                    // 跳过嵌套的修订标签，只取本层“直接”文本，避免重复展示同一段修订内容
+                    if (!$child.hasClass('hm_revise_ins') && !$child.hasClass('hm_revise_del')) {
+                        text += $child.text();
+                    }
+                }
+            });
+            return text;
+        }
+
+        /**
+         * 对字符串进行 HTML 转义，避免 XSS
+         */
+        function escapeHtml(s) {
+            if (!s) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /**
+         * 格式化时间字符串 (YYYY-MM-DD HH:mm)
+         * @param {string} timeStr 
+         * @returns {string}
+         */
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            var d = new Date(timeStr);
+            if (isNaN(d.getTime())) return timeStr;
+            var pad = function (n) { return n < 10 ? '0' + n : n; };
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+
+        /**
+         * 构建 tooltip 内部 HTML
+         * @param {jQuery} $rev 
+         * @returns {string}
+         */
+        function buildTooltipContent($rev) {
+            var userName = $rev.attr('hm-modify-userName') || '';
+            var timeStr = $rev.attr('hm-modify-time') || '';
+            var timeDisplay = formatTime(timeStr);
+            var content = getDirectText($rev).trim();
+            var isIns = $rev.hasClass('hm_revise_ins');
+            var contentHtml = isIns
+                ? '<strong>新增:</strong> "' + escapeHtml(content) + '"'
+                : '<strong>删除:</strong> "' + escapeHtml(content) + '"';
+            return '<div class="hm-revise-tooltip-head">' +
+                '<span class="hm-revise-tooltip-name">' + escapeHtml(userName) + '</span>' +
+                '<span class="hm-revise-tooltip-time">' + escapeHtml(timeDisplay) + '</span>' +
+                '</div>' +
+                '<div class="hm-revise-tooltip-body">' + contentHtml + '</div>';
+        }
+
+        /**
+         * 为 tooltip 添加对应的样式类（区分新增/删除）
+         */
+        function setTooltipBorderClass($rev) {
+            $tooltip.removeClass('hm-revise-tooltip-ins hm-revise-tooltip-del')
+                .addClass($rev.hasClass('hm_revise_del') ? 'hm-revise-tooltip-del' : 'hm-revise-tooltip-ins');
+        }
+
+        /**
+         * 根据修订元素位置设置 tooltip 的 fixed 定位（在元素下方、左侧对齐）
+         * @param {HTMLElement} domEl 修订元素的 DOM 节点
+         */
+        function positionTooltip(domEl) {
+            var rect = domEl.getBoundingClientRect();
+            $tooltip.css({
+                position: 'fixed',
+                top: (rect.bottom + GAP) + 'px',
+                left: rect.left + 'px'
+            });
+        }
+
+        /**
+         * 判断当前选区/光标是否在指定元素内。
+         * 用于：光标在修订标签内时不展示 tooltip，避免遮挡；选区变化时若光标进入当前修订则隐藏。
+         * @param {HTMLElement} domEl 修订标签的 DOM 元素
+         * @returns {boolean}
+         */
+        function isCursorInElement(domEl) {
+            try {
+                var selection = _t.editor.getSelection();
+                if (!selection) return false;
+                var startEl = selection.getStartElement();
+                if (!startEl) return false;
+                var node = startEl.$;
+                return domEl === node || domEl.contains(node);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        /**
+         * 显示 tooltip
+         * @param {jQuery} $rev 触发的修订元素
+         */
+        function showTooltip($rev) {
+            if (!$rev || !$rev[0] || !$body[0].contains($rev[0])) return;
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+            currentRevEl = $rev[0];                                      // 记录当前修订元素，供 refresh/selectionChange 使用
+            $tooltip.html(buildTooltipContent($rev)).show();
+            setTooltipBorderClass($rev);                                 // 新增/删除对应不同边框样式
+            positionTooltip($rev[0]);
+        }
+
+        /**
+         * 如果 tooltip 仍在显示，则刷新其内容及位置
+         */
+        function refreshTooltipIfShowing() {
+            if (!currentRevEl || !$tooltip.is(':visible')) return;
+            if (!$body[0].contains(currentRevEl)) {                     // 修订节点已被删除，直接隐藏
+                currentRevEl = null;
+                $tooltip.hide();
+                return;
+            }
+            var $rev = $(currentRevEl);
+            $tooltip.html(buildTooltipContent($rev));                    // 内容或位置可能已变，重新渲染并定位
+            setTooltipBorderClass($rev);
+            positionTooltip(currentRevEl);
+        }
+
+        /**
+         * 隐藏 tooltip（立即隐藏，无延迟）
+         */
+        function hideTooltip() {
+            if (hideTimer) {
+                clearTimeout(hideTimer);
+                hideTimer = null;
+            }
+            currentRevEl = null;
+            $tooltip.hide();
+        }
+
+        /**
+         * 取消隐藏 tooltip 的定时器
+         */
+        function cancelHide() {
+            if (hideTimer) {
+                clearTimeout(hideTimer);
+                hideTimer = null;
+            }
+        }
+
+        /**
+         * 取消延迟显示 tooltip 的定时器
+         */
+        function cancelShowTooltip() {
+            if (showTooltipTimer) {
+                clearTimeout(showTooltipTimer);
+                showTooltipTimer = null;
+            }
+        }
+
+        /**
+         * 延迟刷新 tooltip（内容变更或文档变动时调用）。
+         * 使用 setTimeout(..., 0) 防抖，确保 DOM/选区稳定后再刷新内容与位置。
+         */
+        function scheduleRefresh() {
+            if (!currentRevEl || !$tooltip.is(':visible')) return;
+            if (refreshTooltipTimer) clearTimeout(refreshTooltipTimer);
+            refreshTooltipTimer = setTimeout(function () {
+                refreshTooltipTimer = null;
+                refreshTooltipIfShowing();
+            }, 0);
+        }
+
+        // --- 事件绑定 ---
+
+        // 鼠标移入修订：先取消即将发生的隐藏/显示，再设延迟显示；到点后若光标不在该标签内才 show
+        $body.on('mouseenter.reviseTooltip', REVISE_SELECTOR, function () {
+            cancelHide();
+            cancelShowTooltip();
+            var $rev = $(this);
+            showTooltipTimer = setTimeout(function () {
+                showTooltipTimer = null;
+                if (!$rev[0] || !$body[0].contains($rev[0])) return;
+                if (!isCursorInElement($rev[0])) {
+                    showTooltip($rev);
+                } else {
+                    hideTooltip();   // 光标在修订内时不展示，避免遮挡编辑区
+                }
+            }, SHOW_DELAY);
+        });
+
+        // 鼠标离开修订：仅当“真正离开”（未移入另一修订或 tooltip）时才隐藏，否则可继续查看
+        $body.on('mouseleave.reviseTooltip', REVISE_SELECTOR, function (e) {
+            cancelShowTooltip();
+            var related = e.relatedTarget;
+            var leftReviseElement = !related || !this.contains(related);
+            if (!leftReviseElement) return;
+            var $related = related ? $(related) : null;
+            var movedToReviseOrTooltip = $related && ($related.closest(REVISE_SELECTOR).length || $related.closest('.' + TOOLTIP_CLASS).length);
+            if (!movedToReviseOrTooltip) {
+                hideTooltip();
+            }
+        });
+
+        // tooltip 自身：移入时取消隐藏，移出时隐藏（便于用户从修订移到 tooltip 阅读）
+        $tooltip.on('mouseenter', cancelHide);
+        $tooltip.on('mouseleave', hideTooltip);
+
+        // 正在输入时不再显示/保持 tooltip，避免干扰编辑
+        $body.on('input.reviseTooltip', function () {
+            cancelShowTooltip();
+            hideTooltip();
+        });
+
+        // 文档内容变更（增删改）：若 tooltip 正在显示，防抖刷新其内容与位置
+        _t._reviseTooltipChangeListener = _t.editor.on('change', function () {
+            scheduleRefresh();
+        });
+
+        // 选区变化：光标进入当前展示的修订标签内时隐藏 tooltip（与 mouseenter 里 isCursorInElement 逻辑一致）
+        _t._reviseTooltipSelectionListener = _t.editor.on('selectionChange', function () {
+            if (currentRevEl && isCursorInElement(currentRevEl)) {
+                hideTooltip();
+            }
+        });
     },
 
     /**

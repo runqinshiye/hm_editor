@@ -645,7 +645,7 @@ window.aiServer = 'https://editor.huimei.com';
     });
 
     // 定位元素按钮事件
-    $('#btnFocusElement').on('click', function () {
+    $('#btnFocusElement').on('click', async function () {
         if (!window.tabManager.currentTabId) {
             showEditorNotOpenDialog('定位元素');
             return;
@@ -653,8 +653,13 @@ window.aiServer = 'https://editor.huimei.com';
 
         // 显示定位元素对话框
         $('.focusElementDialog').show();
-        // 清空输入框
-        $('#focusDocCode').val('');
+        // 默认填入当前病历编码
+        try {
+            const { docCode } = await getCurrentDocumentInfo();
+            $('#focusDocCode').val(docCode || '');
+        } catch (e) {
+            $('#focusDocCode').val('');
+        }
         $('#focusEleCode').val('');
         $('#focusEleContent').val('');
     });
@@ -772,6 +777,9 @@ window.aiServer = 'https://editor.huimei.com';
             $('#focusEleContent').val('');
             // 调用 focusElement 方法
             const result = editor.focusElement(docCode, eleCode || undefined, eleContent || undefined);
+            if (!result) {
+                showAlertDialog('定位元素失败，未找到指定文档/元素/文本内容');
+            }
             
 
         } catch (e) {
@@ -1467,14 +1475,35 @@ window.aiServer = 'https://editor.huimei.com';
     });
 
     // 设置数据按钮
-    $('#btnSetData').on('click', function () {
+    $('#btnSetData').on('click', async function () {
         if (!window.tabManager.currentTabId) {
             showEditorNotOpenDialog('设置数据');
             return;
         }
+        
+        // 获取当前编辑器的病历编码
+        let docCode = 'DOC001'; // 默认值
+        try {
+            const editor = await window.tabManager.getCurrentEditor();
+            if (editor && editor.editor) {
+                const $body = $(editor.editor.document.getBody().$);
+                // 查找第一个具有data-hm-widgetid的元素
+                const $firstWidget = $body.find('div[data-hm-widgetid]').first();
+                if ($firstWidget.length > 0) {
+                    const widgetId = $firstWidget.attr('data-hm-widgetid');
+                    if (widgetId && widgetId.trim()) {
+                        docCode = widgetId.trim();
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('获取当前编辑器病历编码失败:', error);
+            // 如果获取失败，使用默认值
+        }
+        
         // 设置数据元示例数据
         $('.dataInputDialog textarea').val(JSON.stringify([{
-            code: 'DOC001',
+            code: docCode,
             data: [{
                     keyCode: '',
                     keyName: '',
@@ -1488,6 +1517,69 @@ window.aiServer = 'https://editor.huimei.com';
             ]
         }], null, 2));
         $('.dataInputDialog').show();
+    });
+
+    // 删除文档按钮
+    $('#btnDeleteDoc').on('click', function () {
+        if (!window.tabManager.currentTabId) {
+            showEditorNotOpenDialog('删除文档');
+            return;
+        }
+        // 清空输入框
+        $('#deleteDocCode').val('');
+        // 显示删除文档对话框
+        $('.deleteDocDialog').show();
+    });
+
+    // 确认删除文档
+    $('#btnConfirmDeleteDoc').on('click', async function () {
+        try {
+            const docCodeText = $('#deleteDocCode').val().trim();
+            
+            if (!docCodeText) {
+                showAlertDialog('请输入要删除的文档编号');
+                return;
+            }
+
+            const editor = await window.tabManager.getCurrentEditor();
+            if (!editor || !editor.deleteDocContent) {
+                showAlertDialog('编辑器不支持删除文档功能');
+                return;
+            }
+
+            // 解析输入：可能是单个值或JSON数组
+            let docCode = null;
+            try {
+                // 先尝试解析为JSON
+                docCode = JSON.parse(docCodeText);
+            } catch (e) {
+                // 如果不是JSON，则当作单个字符串处理
+                docCode = docCodeText;
+            }
+
+            // 调用删除方法
+            const result = editor.deleteDocContent(docCode);
+            
+            if (result) {
+                showAlertDialog('删除文档成功！');
+            } else {
+                showAlertDialog('删除文档失败，请检查文档编号是否正确');
+            }
+
+            // 隐藏对话框并清空输入
+            $('.deleteDocDialog').hide();
+            $('#deleteDocCode').val('');
+
+        } catch (e) {
+            console.error('删除文档失败:', e);
+            showAlertDialog('删除文档失败: ' + e.message);
+        }
+    });
+
+    // 取消删除文档
+    $('#btnCancelDeleteDoc').on('click', function () {
+        $('.deleteDocDialog').hide();
+        $('#deleteDocCode').val('');
     });
 
     // 确认设置数据

@@ -196,6 +196,7 @@ function _handleEdit(editor, sourceData) {
                 element.removeAttribute('data-hm-name');
                 element.removeAttribute('data-hm-id');
                 element.removeAttribute('data-hm-code');
+                element.removeAttribute('data-hm-remark');
                 // 清空td内容，包括br标签
                 element.setHtml('');
                 // 将新节点插入到td中
@@ -279,14 +280,17 @@ function _handleEdit(editor, sourceData) {
             element.$.innerHTML = '';
             // 获取分割符，默认为 &nbsp;
             var separatorValue = sourceData['_separator_value'] || '&nbsp;';
+            var hideLabelCode = sourceData['_hidelabelcode'] === 'true';
 
             for (var i = 0; i < sourceData.items.length; i++) {
+                var itemRaw = sourceData.items[i];
+                var itemDisplay = _getItemDisplayLabel(itemRaw, hideLabelCode);
                 var itemNode = new CKEDITOR.dom.element('span');
                 itemNode.setText('\u200B');
                 itemNode.addClass('fa');
                 itemNode.addClass(sourceData['data-hm-node'] === 'checkbox' ? 'fa-square-o' : 'fa-circle-o');
                 itemNode.setAttribute('data-hm-node', sourceData['data-hm-node']);
-                itemNode.setAttribute('data-hm-itemName', sourceData.items[i]);
+                itemNode.setAttribute('data-hm-itemName', itemRaw);
                 $(itemNode.$).on('click', function () {
                     _handleCascade(this);
                 });
@@ -295,11 +299,14 @@ function _handleEdit(editor, sourceData) {
                 var descNode = new CKEDITOR.dom.element('span');
                 descNode.setText('\u200B');
                 descNode.setAttribute('data-hm-node', 'labelbox');
-                descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
-                descNode.setText(sourceData.items[i]);
+                descNode.setAttribute('data-hm-itemName', itemRaw);
+                descNode.setText(itemDisplay);
                 element.append(descNode);
                 // 使用配置的分割符，最后一个选项不添加分隔符
                 _appendSeparator(element, separatorValue, i, sourceData.items.length);
+            }
+            if (!sourceData['_hidelabelcode']) {
+                element.removeAttribute('_hidelabelcode');
             }
             break;
         case 'dropbox':
@@ -476,6 +483,12 @@ function _handleEdit(editor, sourceData) {
     } else {
         element.removeAttribute('data-hm-code');
     }
+    // 更新 data-hm-remark（备注，绑定到数据元 DOM 属性）
+    if (sourceData['data-hm-remark']) {
+        element.setAttribute('data-hm-remark', sourceData['data-hm-remark']);
+    } else {
+        element.removeAttribute('data-hm-remark');
+    }
 
     // 恢复滚动位置
     if (editorWindow) {
@@ -513,6 +526,23 @@ function _handleCreate(editor, sourceData, isEdit) {
         if (td && td.hasAttribute('data-hm-node')){ 
             editor.showNotification('无法插入数据元到[非嵌套类型数据元内]');
             return;
+        }
+        
+        // 定位标识不能嵌套在数据元内部
+        if (sourceData['data-hm-node'] === 'positionnode') {
+            var selection = editor.getSelection();
+            if (selection) {
+                var startElement = selection.getStartElement();
+                if (startElement) {
+                    var datasourceElement = startElement.getAscendant(function(el) {
+                        return el.getAttribute && el.getAttribute('data-hm-node');
+                    }, true);
+                    if (datasourceElement) {
+                        editor.showNotification('定位标识不能嵌套在数据元内部');
+                        return;
+                    }
+                }
+            }
         }
     }
   
@@ -685,13 +715,16 @@ function _handleCreate(editor, sourceData, isEdit) {
             case 'radiobox':
                 // 获取分割符，默认为 &nbsp;
                 var radioSeparatorValue = sourceData['_separator_value'] || '&nbsp;';
+                var radioHideLabelCode = sourceData['_hidelabelcode'] === 'true';
                 for (var i = 0; i < sourceData.items.length; i++) {
+                    var radioItemRaw = sourceData.items[i];
+                    var radioItemDisplay = _getItemDisplayLabel(radioItemRaw, radioHideLabelCode);
                     var itemNode = new CKEDITOR.dom.element('span');
                     itemNode.setText('\u200B');
                     itemNode.addClass('fa');
                     itemNode.addClass('fa-circle-o');
                     itemNode.setAttribute('data-hm-node', sourceData['data-hm-node']);
-                    itemNode.setAttribute('data-hm-itemName', sourceData.items[i]);
+                    itemNode.setAttribute('data-hm-itemName', radioItemRaw);
                     $(itemNode.$).on('click', function () {
                         _handleCascade(this);
                     });
@@ -700,8 +733,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                     var descNode = new CKEDITOR.dom.element('span');
                     descNode.setText('\u200B');
                     descNode.setAttribute('data-hm-node', 'labelbox');
-                    descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
-                    descNode.setText(sourceData.items[i]);
+                    descNode.setAttribute('data-hm-itemName', radioItemRaw);
+                    descNode.setText(radioItemDisplay);
                     node.append(descNode);
                     // 使用配置的分割符，最后一个选项不添加分隔符
                     _appendSeparator(node, radioSeparatorValue, i, sourceData.items.length);
@@ -715,13 +748,16 @@ function _handleCreate(editor, sourceData, isEdit) {
             case 'checkbox':
                 // 获取分割符，默认为 &nbsp;
                 var checkSeparatorValue = sourceData['_separator_value'] || '&nbsp;';
+                var checkHideLabelCode = sourceData['_hidelabelcode'] === 'true';
                 for (var i = 0; i < sourceData.items.length; i++) {
+                    var checkItemRaw = sourceData.items[i];
+                    var checkItemDisplay = _getItemDisplayLabel(checkItemRaw, checkHideLabelCode);
                     var itemNode = new CKEDITOR.dom.element('span');
                     itemNode.setText('\u200B');
                     itemNode.addClass('fa');
                     itemNode.addClass('fa-square-o');
                     itemNode.setAttribute('data-hm-node', sourceData['data-hm-node']);
-                    itemNode.setAttribute('data-hm-itemName', sourceData.items[i]);
+                    itemNode.setAttribute('data-hm-itemName', checkItemRaw);
                     $(itemNode.$).on('click', function () {
                         _handleCascade(this);
                     });
@@ -730,8 +766,8 @@ function _handleCreate(editor, sourceData, isEdit) {
                     var descNode = new CKEDITOR.dom.element('span');
                     descNode.setText('\u200B');
                     descNode.setAttribute('data-hm-node', 'labelbox');
-                    descNode.setAttribute('data-hm-itemName', sourceData.items[i]);
-                    descNode.setText(sourceData.items[i]);
+                    descNode.setAttribute('data-hm-itemName', checkItemRaw);
+                    descNode.setText(checkItemDisplay);
                     node.append(descNode);
                     // 使用配置的分割符，最后一个选项不添加分隔符
                     _appendSeparator(node, checkSeparatorValue, i, sourceData.items.length);
@@ -757,6 +793,9 @@ function _handleCreate(editor, sourceData, isEdit) {
                     td.setAttribute('data-hm-name', sourceData['data-hm-name']);
                     td.setAttribute('data-hm-id', node.getAttribute('data-hm-id'));
                     td.setAttribute('data-hm-code', node.getAttribute('data-hm-code'));
+                    if (sourceData['data-hm-remark']) {
+                        td.setAttribute('data-hm-remark', sourceData['data-hm-remark']);
+                    }
                     resultNode = td;
                 } else {
                     editor.showNotification('单元类型仅限于插入表格中');
@@ -803,6 +842,18 @@ function _handleCreate(editor, sourceData, isEdit) {
         }
     
 
+}
+
+/**
+ * 根据「不显示编码」配置获取选项展示文案（仅显示值或 值(编码)）
+ * @param {string} item 选项字符串，如 "值1(编码1)"
+ * @param {boolean} hideCode 是否不显示括号及编码
+ * @returns {string}
+ */
+function _getItemDisplayLabel(item, hideCode) {
+    if (!hideCode || !item) return item;
+    var m = (item || '').match(/^\s*(.+?)\s*\((.*?)\)\s*$/);
+    return m ? m[1].trim() : item;
 }
 
 /**
