@@ -938,8 +938,9 @@ commonHM.component['documentModel'].fn({
             case 'radiobox':
                 var $ds = datasourceNode;
                 var val = bindVal.code ? bindVal.value + '(' + bindVal.code + ')' : bindVal.value;
-                $ds.find('span[data-hm-node="radiobox"]:not([data-hm-node="labelbox"])').removeClass('fa-dot-circle-o').addClass('fa-circle-o');
-                $ds.find('span[data-hm-node="radiobox"][data-hm-itemname="' + val + '"]:not([data-hm-node="labelbox"])').addClass('fa-dot-circle-o');
+                $ds.find('span[data-hm-node="radiobox"]:not([data-hm-node="labelbox"])').removeClass('fa-dot-circle-o').addClass('fa-circle-o').attr('_selected', 'false');
+                var escapedVal = val.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, "\\$&");
+                $ds.find('span[data-hm-node="radiobox"][data-hm-itemname="' + escapedVal + '"]:not([data-hm-node="labelbox"])').addClass('fa-dot-circle-o').attr('_selected', 'true');
                 break;
             case 'textboxwidget':
                 var $ds = datasourceNode;

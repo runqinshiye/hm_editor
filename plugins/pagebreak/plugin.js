@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license Copyright (c) 2003-2017, CKSource - Frederico Knabben. All rights reserved.
  * For licensing, see LICENSE.md or http://ckeditor.com/license
  */
@@ -1582,25 +1582,30 @@ var removeSplitterDebugger = false; // 调试保存使用, 去除所有分页符
 
                                 widgets = $body.find('.emrWidget-content').removeAttr(SPLIT_BEFORE_DOC_TEMP).removeAttr(SPLIT_AFTER_DOC_TEMP);
                                 // if (splitPageParams.checkedType && (splitPageParams.checkedType.includes('another') || splitPageParams.checkedType.includes('alone'))) {
-                                if (splitPageParams.pageAnotherTpls || splitPageParams.pageAloneTpls ) {
+                                if (splitPageParams.pageAnotherTpls || splitPageParams.pageAloneTpls || splitPageParams.pageAnotherCodes || splitPageParams.pageAloneCodes) {
                                     // // 另起一页
                                     // var anotherTempaltes = splitPageParams.anotherTemplates || [];
                                     // // 单独分页
                                     // var aloneTempaltes = splitPageParams.aloneTemplates || [];
-                                    // 另起一页
+                                    // 另起一页（按模板名称）
                                     var anotherTempaltes = splitPageParams.pageAnotherTpls || [];
-                                    // 单独分页
+                                    // 单独分页（按模板名称）
                                     var aloneTempaltes = splitPageParams.pageAloneTpls || [];
+                                    // 另起一页（按文档编码 doc_code）
+                                    var pageAnotherCodes = splitPageParams.pageAnotherCodes || [];
+                                    // 单独分页（按文档编码 doc_code）
+                                    var pageAloneCodes = splitPageParams.pageAloneCodes || [];
                                     var len = widgets.length;
                                     for (i = 0; i < len; i++) {
                                         var widget = widgets[i];
                                         tabIndex_1 = widget.parentNode.parentNode;
 
-                                        // 病历名称
+                                        // 病历名称、文档编码
                                         var templateName = widget.getAttribute('data-hm-widgetname');
-                                        // 是否包含某一参数
-                                        var aloneFlag = aloneTempaltes.includes(templateName);
-                                        var anotherFlag = anotherTempaltes.includes(templateName);
+                                        var docCode = widget.getAttribute('data-hm-widgetid');
+                                        // 是否包含某一参数（名称或编码任一匹配即生效）
+                                        var aloneFlag = aloneTempaltes.includes(templateName) || (docCode && pageAloneCodes.includes(docCode));
+                                        var anotherFlag = anotherTempaltes.includes(templateName) || (docCode && pageAnotherCodes.includes(docCode));
 
                                         if (aloneFlag) {
                                             // 独立一页

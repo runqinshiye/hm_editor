@@ -163,6 +163,8 @@
          * @param {Boolean} options.printConfig.pageBreakPrintPdf 分页模式打印是否生成pdf
          * @param {Array} options.printConfig.pageAnotherTpls 另页打印模板名称
          * @param {Array} options.printConfig.pageAloneTpls 单独一页打印模板名称
+         * @param {Array} options.printConfig.pageAnotherCodes 另页打印文档编码（doc_code）
+         * @param {Array} options.printConfig.pageAloneCodes 单独一页打印文档编码（doc_code）
          * @param {Function} options.callback 加载完成回调
          */
         createEditor: function (options) {
@@ -254,6 +256,8 @@
          * @param {Boolean} options.printConfig.pageBreakPrintPdf 分页模式打印是否生成pdf
          * @param {Array} options.printConfig.pageAnotherTpls 另页打印模板名称
          * @param {Array} options.printConfig.pageAloneTpls 单独一页打印模板名称
+         * @param {Array} options.printConfig.pageAnotherCodes 另页打印文档编码（doc_code）
+         * @param {Array} options.printConfig.pageAloneCodes 单独一页打印文档编码（doc_code）
          * @returns {Promise} 返回Promise对象，resolve时返回编辑器ID和实例
          */
         createEditorAsync: function (options) {

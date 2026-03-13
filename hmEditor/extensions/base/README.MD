@@ -1133,3 +1133,52 @@ HMEditor.deleteDocContent('DOC_001');
 // 删除多个文档
 HMEditor.deleteDocContent(['DOC_001', 'DOC_002', 'DOC_003']);
 ```
+
+### 21. setShowTools / getShowTools 方法
+
+该方法用于在编辑器已初始化后动态控制工具栏的显示与隐藏（不依赖初始化参数 showTools）。
+
+```javascript
+/**
+ * 设置编辑器工具栏显示或隐藏
+ * @param {Boolean} show 是否显示工具栏，true 显示，false 隐藏
+ * @returns {Boolean} 设置是否成功
+ */
+setShowTools(show)
+
+/**
+ * 获取当前工具栏是否显示
+ * @returns {Boolean} 当前工具栏是否显示
+ */
+getShowTools()
+```
+
+#### 使用示例
+
+```javascript
+// 隐藏工具栏
+HMEditor.setShowTools(false);
+
+// 显示工具栏
+HMEditor.setShowTools(true);
+
+// 查询当前状态
+var visible = HMEditor.getShowTools();
+```
+
+初始化时可通过 `options.showTools` 控制工具栏初始是否显示；`setShowTools` / `getShowTools` 用于在运行过程中切换或查询工具栏显示状态。
+
+### 22. setPrintPageBreakConfig 方法
+
+设置打印另页/单独一页配置，支持按模板名称（pageAnotherTpls/pageAloneTpls）或文档编码 doc_code（pageAnotherCodes/pageAloneCodes）控制，仅合并传入的键，未传入的键保留原值。
+
+```javascript
+/**
+ * @param {Object} options 打印分页配置
+ * @param {Array} [options.pageAnotherTpls] 另页打印模板名称数组
+ * @param {Array} [options.pageAloneTpls] 单独一页打印模板名称数组
+ * @param {Array} [options.pageAnotherCodes] 另页打印文档编码（doc_code）数组
+ * @param {Array} [options.pageAloneCodes] 单独一页打印文档编码数组
+ */
+HMEditor.setPrintPageBreakConfig({ pageAnotherCodes: ['DOC001'], pageAloneCodes: ['DOC002'] });
+```

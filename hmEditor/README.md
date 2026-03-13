@@ -222,6 +222,8 @@ HMEditorLoader.destroyEditor(editorId);
 | printConfig.pageBreakPrintPdf | Boolean | 否 | 分页模式打印是否生成pdf |
 | printConfig.pageAnotherTpls | Array | 否 | 另页打印模板名称 |
 | printConfig.pageAloneTpls | Array | 否 | 单独一页打印模板名称 |
+| printConfig.pageAnotherCodes | Array | 否 | 另页打印文档编码（doc_code，对应 data-hm-widgetid） |
+| printConfig.pageAloneCodes | Array | 否 | 单独一页打印文档编码（doc_code） |
 | multiPartHeader | Object | 否 | 转科换床页眉信息配置 |
 | multiPartHeader.controlElementName | String | 是 | 控制时间的数据元名称（页面中对应元素的data-hm-name属性值） |
 | multiPartHeader.headerList | Array | 是 | 页眉信息列表，包含不同时间段的页眉数据配置 |
@@ -2810,3 +2812,66 @@ HMEditorLoader.getEditorInstanceAsync(editorId)
 | showAiDraft | dataList:Array\|Object, [displayType:Number] | void | 显示 AI 草稿，参数同 setDocData |
 | confirmAiDraft | [keyList:Array\|String] | void | 确认（采纳）全部或指定数据元的 AI 草稿 |
 | cancelAiDraft | [keyList:Array\|String] | void | 弃用全部或指定数据元的 AI 草稿 |
+
+
+## 工具栏显示/隐藏控制功能
+
+工具栏显示/隐藏控制功能允许开发者在编辑器已初始化后动态控制工具栏的显示与隐藏，不依赖初始化参数 `showTools`，适用于需要运行时切换编辑界面简洁模式的场景。
+
+### 基本用法
+
+```javascript
+// 隐藏工具栏
+HMEditorLoader.getEditorInstanceAsync(editorId)
+    .then(function(editorInstance) {
+        editorInstance.setShowTools(false);
+        console.log('工具栏已隐藏');
+    });
+
+// 显示工具栏
+editorInstance.setShowTools(true);
+
+// 查询当前工具栏是否显示
+var visible = editorInstance.getShowTools();
+```
+
+### 方法说明
+
+#### setShowTools - 设置工具栏显示/隐藏
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| show | Boolean | 是 | 是否显示工具栏，true 显示，false 隐藏 |
+
+**返回值：** Boolean，设置成功返回 true，参数非法返回 false。
+
+**使用说明：**
+- 初始化时可通过 `createEditorAsync` 的 `options.showTools` 控制初始状态；本接口用于初始化后的运行时切换。
+- 隐藏时工具栏区域不占位且不显示，显示时恢复为默认高度。
+
+#### getShowTools - 获取工具栏是否显示
+
+**返回值：** Boolean，当前工具栏是否显示。
+
+#### setPrintPageBreakConfig - 设置打印另页/单独一页配置
+
+支持按模板名称（原有参数）或文档编码（doc_code）控制另页打印与单独一页打印，仅合并传入的键，未传入的键保留原值。
+
+| 参数名 | 类型 | 必填 | 描述 |
+| --- | --- | --- | --- |
+| options | Object | 否 | 打印分页配置对象，不传则不改动现有配置 |
+| options.pageAnotherTpls | Array | 否 | 另页打印模板名称数组 |
+| options.pageAloneTpls | Array | 否 | 单独一页打印模板名称数组 |
+| options.pageAnotherCodes | Array | 否 | 另页打印文档编码（doc_code，对应 data-hm-widgetid）数组 |
+| options.pageAloneCodes | Array | 否 | 单独一页打印文档编码（doc_code）数组 |
+
+**返回值：** 无
+
+**使用示例：**
+```javascript
+// 仅按文档编码设置另页打印与单独一页
+editorInstance.setPrintPageBreakConfig({
+    pageAnotherCodes: ['DOC001', 'DOC002'],
+    pageAloneCodes: ['DOC003']
+});
+```

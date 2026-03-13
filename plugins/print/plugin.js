@@ -852,15 +852,18 @@ function doPrint(editor, syncType, timeout, download, callback, downloadPdfCallb
 
     //默认另页打印时，不会另起一页，也不会单独一页，是连续的
     var anotherTempaltes = printConfig.pageAnotherTpls||[],
-    aloneTempaltes = printConfig.pageAloneTpls||[];
-    if (aloneTempaltes.length > 0 || aloneTempaltes.length > 0) {
+    aloneTempaltes = printConfig.pageAloneTpls||[],
+    pageAnotherCodes = printConfig.pageAnotherCodes||[],
+    pageAloneCodes = printConfig.pageAloneCodes||[];
+    if (aloneTempaltes.length > 0 || anotherTempaltes.length > 0 || pageAloneCodes.length > 0 || pageAnotherCodes.length > 0) {
         var widgets = body.find('.emrWidget-content');
         var tempIndex = -1;
         for (var i = 0, len = widgets.count(); i < len; i++) {
             var widget = widgets.getItem(i);
             var templateName = widget.getAttribute('data-hm-widgetname');
-            var aloneFlag = aloneTempaltes.includes(templateName);
-            var anotherFlag = anotherTempaltes.includes(templateName);
+            var docCode = widget.getAttribute('data-hm-widgetid');
+            var aloneFlag = aloneTempaltes.includes(templateName) || (docCode && pageAloneCodes.includes(docCode));
+            var anotherFlag = anotherTempaltes.includes(templateName) || (docCode && pageAnotherCodes.includes(docCode));
             if (i == tempIndex) { // 单独一页处理，将需要单独一页的病历的下一个病历设置该属性
                 $(widget.$).parents('div').last().attr('style', 'page-break-before:always');
                 tempIndex = -1;

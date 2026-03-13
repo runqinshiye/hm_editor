@@ -321,6 +321,41 @@ HMEditor.fn({
         this.documentModel.setDocReviseMode(reviseMode, retainModify);
     },
     /**
+     * 设置编辑器工具栏显示或隐藏（运行时控制，不依赖初始化参数 showTools）
+     * @param {Boolean} show 是否显示工具栏，true 显示，false 隐藏
+     * @returns {Boolean} 设置是否成功，参数非法时返回 false
+     *
+     * 使用示例：
+     * editorInstance.setShowTools(false);  // 隐藏工具栏
+     * editorInstance.setShowTools(true);   // 显示工具栏
+     */
+    setShowTools: function (show) {
+        if (show !== true && show !== false) {
+            console.error('setShowTools: 参数 show 必须为 Boolean');
+            return false;
+        }
+        this.editor.showTools = !!show;
+        var top = this.editor.ui.space('top');
+        if (top) {
+            if (show) {
+                top.removeStyle('display');
+                top.setStyle('height', 'auto');
+            } else {
+                top.setStyle('height', '0%');
+                top.setStyle('overflow', 'hidden');
+                top.setStyle('display', 'none');
+            }
+        }
+        return true;
+    },
+    /**
+     * 获取当前工具栏是否显示
+     * @returns {Boolean} 当前工具栏是否显示
+     */
+    getShowTools: function () {
+        return !!this.editor.showTools;
+    },
+    /**
      * 设置模板制作时需要的数据元
      * @param {Object}
      * {
@@ -383,6 +418,37 @@ HMEditor.fn({
      */
     setDocMultiPartHeader: function (settings) {
         this.editor.HMConfig.multiPartHeader = settings || {};
+    },
+    /**
+     * 设置打印另页/单独一页配置（支持按模板名称或文档编码）
+     * @param {Object} options 打印分页配置，仅合并传入的键，不传的键保留原值
+     * @param {Array} [options.pageAnotherTpls] 另页打印模板名称数组
+     * @param {Array} [options.pageAloneTpls] 单独一页打印模板名称数组
+     * @param {Array} [options.pageAnotherCodes] 另页打印文档编码（doc_code，对应 data-hm-widgetid）数组
+     * @param {Array} [options.pageAloneCodes] 单独一页打印文档编码（doc_code）数组
+     */
+    setPrintPageBreakConfig: function (options) {
+        if (!this.editor || !this.editor.HMConfig) {
+            return;
+        }
+        if (!this.editor.HMConfig.printConfig) {
+            this.editor.HMConfig.printConfig = {};
+        }
+        var printConfig = this.editor.HMConfig.printConfig;
+        if (options && typeof options === 'object') {
+            if (options.hasOwnProperty('pageAnotherTpls')) {
+                printConfig.pageAnotherTpls = options.pageAnotherTpls;
+            }
+            if (options.hasOwnProperty('pageAloneTpls')) {
+                printConfig.pageAloneTpls = options.pageAloneTpls;
+            }
+            if (options.hasOwnProperty('pageAnotherCodes')) {
+                printConfig.pageAnotherCodes = options.pageAnotherCodes;
+            }
+            if (options.hasOwnProperty('pageAloneCodes')) {
+                printConfig.pageAloneCodes = options.pageAloneCodes;
+            }
+        }
     },
     /**
      * 下载pdf

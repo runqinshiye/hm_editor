@@ -1428,6 +1428,28 @@ window.aiServer = 'https://editor.huimei.com';
         }
     });
 
+    // 显示/隐藏工具栏（演示 setShowTools / getShowTools 接口）
+    $('#btnShowTools').on('click', async function () {
+        if (!window.tabManager.currentTabId) {
+            showEditorNotOpenDialog('显示/隐藏工具栏');
+            return;
+        }
+        try {
+            const editor = await window.tabManager.getCurrentEditor();
+            if (!editor || typeof editor.getShowTools !== 'function' || typeof editor.setShowTools !== 'function') {
+                showAlertDialog('当前编辑器不支持工具栏显示/隐藏接口');
+                return;
+            }
+            var visible = editor.getShowTools();
+            editor.setShowTools(!visible);
+            var $btn = $('#btnShowTools');
+            $btn.text(visible ? '显示工具栏' : '隐藏工具栏');
+        } catch (e) {
+            console.error('切换工具栏显示失败:', e);
+            showAlertDialog('切换工具栏显示失败: ' + (e.message || e));
+        }
+    });
+
     // 开关按钮样式变化（使用统一的处理函数，使用命名空间）
     $('#reviseFlag').off('change.revise').on('change.revise', handleReviseFlagChange);
 
